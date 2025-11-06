@@ -1,0 +1,140 @@
+{
+	"easycom": {
+		"autoscan": true,
+		"custom": {
+			"^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+		}
+	},
+	"pages": [
+		{
+			"path": "pages/auth/login",
+			"style": {
+				"navigationBarTitleText": "登录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/home/index",
+			"style": {
+				"navigationBarTitleText": "首页"
+			}
+		},
+		{
+			"path": "pages/auth/register",
+			"style": {
+				"navigationBarTitleText": "注册",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/home/appointment/select-hospital",
+			"style": {
+				"navigationBarTitleText": "选择院区"
+			}
+		},
+		{
+			"path": "pages/home/appointment/select-department",
+			"style": {
+				"navigationBarTitleText": "选择科室"
+			}
+		},
+		{
+			"path": "pages/home/appointment/select-doctor",
+			"style": {
+				"navigationBarTitleText": "选择医生"
+			}
+		},
+		{
+			"path": "pages/home/appointment/confirm",
+			"style": {
+				"navigationBarTitleText": "确认预约"
+			}
+		},
+		{
+			"path": "pages/home/appointment/success",
+			"style": {
+				"navigationBarTitleText": "我的预约单"
+			}
+		},
+		{
+			"path": "pages/profile/index",
+			"style": {
+				"navigationBarTitleText": "个人中心"
+			}
+		},
+		{
+			"path": "pages/profile/appointments",
+			"style": {
+				"navigationBarTitleText": "我的预约"
+			}
+		},
+		{
+			"path": "pages/profile/patients",
+			"style": {
+				"navigationBarTitleText": "就诊人管理"
+			}
+		},
+		{
+			"path": "pages/profile/health",
+			"style": {
+				"navigationBarTitleText": "健康档案"
+			}
+		},
+	{
+		"path": "pages/message/index",
+		"style": {
+			"navigationBarTitleText": "消息中心"
+		}
+	},
+	{
+		"path": "pages/features/doctors",
+		"style": {
+			"navigationBarTitleText": "科室专家"
+		}
+	},
+		{
+			"path": "pages/features/ai-assistant",
+			"style": {
+				"navigationBarTitleText": "AI就医助手"
+			}
+		},
+		{
+			"path": "pages/features/feedback",
+			"style": {
+				"navigationBarTitleText": "意见反馈"
+			}
+		}
+	],
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#00D5D9",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "black",
+		"list": [
+			{
+				"pagePath": "pages/home/index",
+				"text": "首页",
+				"iconPath": "static/tabbar/home.png",
+				"selectedIconPath": "static/tabbar/home-activate.png"
+			},
+			{
+				"pagePath": "pages/message/index",
+				"text": "消息",
+				"iconPath": "static/tabbar/message.png",
+				"selectedIconPath": "static/tabbar/message-activate.png"
+			},
+			{
+				"pagePath": "pages/profile/index",
+				"text": "我的",
+				"iconPath": "static/tabbar/profile.png",
+				"selectedIconPath": "static/tabbar/profile-activate.png"
+			}
+		]
+	},
+	"globalStyle": {
+		"navigationBarTextStyle": "white",
+		"navigationBarTitleText": "北交大校医院",
+		"navigationBarBackgroundColor": "#00D5D9",
+		"backgroundColor": "#F0FDFF"
+	}
+}
