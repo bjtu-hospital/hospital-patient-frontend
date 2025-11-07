@@ -15,7 +15,13 @@
       </view>
       
       <view class="patient-selector" @tap="selectPatient">
-        <text class="patient-text" v-if="selectedPatient">{{ selectedPatient.name }}</text>
+        <view class="patient-info" v-if="selectedPatient">
+          <view class="patient-main">
+            <text class="patient-name">{{ selectedPatient.name }}</text>
+            <text class="patient-relation">{{ selectedPatient.relation || '本人' }}</text>
+          </view>
+          <text class="patient-phone">{{ selectedPatient.phone }}</text>
+        </view>
         <text class="patient-placeholder" v-else>请选择就诊人</text>
         <text class="selector-arrow">›</text>
       </view>
@@ -86,9 +92,12 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
+import { getPatients } from '@/api/user'  // ✨ 导入 API
+import { createAppointment } from '@/api/appointment'  // ✨ 导入预约API
 
 const appointmentStore = useAppointmentStore()
 const selectedPatient = ref(null)
+const loading = ref(false)
 
 // 预约信息汇总
 const appointmentInfo = reactive({
@@ -99,30 +108,64 @@ const appointmentInfo = reactive({
   price: 0
 })
 
-// 模拟就诊人列表
-const patients = ref([
-  {
-    id: 1,
-    name: '周锦泽',
-    idCard: '110101199001011234',
-    phone: '13800138000'
-  },
-  {
-    id: 2,
-    name: '张三',
-    idCard: '110101199002022345',
-    phone: '13800138001'
+// 就诊人列表（从 API 获取）
+const patients = ref([])
+
+// 加载就诊人列表
+const loadPatients = async () => {
+  try {
+    loading.value = true
+    // ✨ 调用 API，自动判断使用 Mock 还是真实接口
+    const data = await getPatients()
+    patients.value = data
+    
+    // 自动选择默认就诊人
+    const defaultPatient = data.find(p => p.isDefault)
+    if (defaultPatient) {
+      selectedPatient.value = defaultPatient
+    } else if (data.length > 0) {
+      selectedPatient.value = data[0]
+    }
+  } catch (error) {
+    console.error('获取就诊人列表失败:', error)
+    uni.showToast({
+      title: '获取就诊人失败',
+      icon: 'none'
+    })
+  } finally {
+    loading.value = false
   }
-])
+}
 
 // 选择就诊人
 const selectPatient = () => {
-  const patientNames = patients.value.map(p => p.name)
+  if (patients.value.length === 0) {
+    uni.showModal({
+      title: '提示',
+      content: '您还没有添加就诊人，是否前往添加？',
+      success: (res) => {
+        if (res.confirm) {
+          uni.navigateTo({
+            url: '/pages/profile/patients'
+          })
+        }
+      }
+    })
+    return
+  }
+  
+  // 格式化就诊人列表：姓名 (关系)
+  const patientItems = patients.value.map(p => {
+    const relation = p.relation || '本人'
+    const defaultTag = p.isDefault ? ' [默认]' : ''
+    return `${p.name} (${relation})${defaultTag}`
+  })
   
   uni.showActionSheet({
-    itemList: patientNames,
+    itemList: patientItems,
     success: (res) => {
       selectedPatient.value = patients.value[res.tapIndex]
+      console.log('选择了就诊人:', selectedPatient.value)
     }
   })
 }
@@ -156,36 +199,32 @@ const submitAppointment = async () => {
   })
   
   try {
-    // 模拟API调用 - 按照接口文档格式
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // ✨ 调用 API 创建预约（自动判断使用 Mock 还是真实接口）
+    const schedule = appointmentStore.selectedSchedule
     
-    // 模拟后端返回的数据（按照API文档格式）
-    const mockResponse = {
-      code: 0,
-      message: '预约成功',
-      data: {
-        id: 'appointment_' + Date.now(),
-        orderNo: '2024' + String(Date.now()).slice(-8),
-        queueNumber: '15',
-        needPay: true,
-        payAmount: appointmentInfo.price
-      }
+    const appointmentData = {
+      scheduleId: schedule?.id,
+      slotId: schedule?.id + '_slot_001',  // 时段ID（实际应该从选择的时段获取）
+      patientId: selectedPatient.value.id,
+      symptoms: ''  // 可选的症状描述
     }
+    
+    const result = await createAppointment(appointmentData)
     
     uni.hideLoading()
     
-    // 保存预约记录（实际项目中由后端返回）
+    // 保存预约记录到本地（用于"我的预约"页面显示）
     const appointmentRecord = {
-      id: mockResponse.data.id,
-      orderNo: mockResponse.data.orderNo,
+      id: result.id,
+      orderNo: result.orderNo,
       hospitalName: appointmentInfo.hospital,
       departmentName: appointmentInfo.department,
-      doctorName: appointmentStore.selectedSchedule?.doctorName || '医生',
-      doctorTitle: appointmentInfo.appointmentType,
-      appointmentDate: appointmentStore.selectedSchedule?.date,
-      appointmentTime: appointmentInfo.dateTime,
+      doctorName: schedule?.doctorName || '医生',
+      doctorTitle: schedule?.doctorTitle || '',
+      appointmentDate: schedule?.date,
+      appointmentTime: `${schedule?.period} ${schedule?.startTime}-${schedule?.endTime}`,
       patientName: selectedPatient.value.name,
-      queueNumber: mockResponse.data.queueNumber,
+      queueNumber: result.queueNumber,
       price: appointmentInfo.price,
       status: 'pending',
       canCancel: true,
@@ -193,7 +232,7 @@ const submitAppointment = async () => {
       createdAt: new Date().toISOString()
     }
     
-    // 保存到本地（模拟）
+    // 保存到本地存储
     const existingAppointments = uni.getStorageSync('myAppointments') || []
     existingAppointments.unshift(appointmentRecord)
     uni.setStorageSync('myAppointments', existingAppointments)
@@ -201,9 +240,9 @@ const submitAppointment = async () => {
     // 清空预约流程数据
     appointmentStore.clearAppointmentData()
     
-    // 跳转到预约成功页面（待支付）
+    // 跳转到预约成功页面
     uni.navigateTo({
-      url: '/pages/home/appointment/success'
+      url: `/pages/home/appointment/success?appointmentId=${result.id}`
     })
     
   } catch (error) {
@@ -231,10 +270,8 @@ onMounted(() => {
   appointmentInfo.dateTime = schedule ? `${schedule.date} ${schedule.period} ${schedule.period === '上午' ? '08:00~12:00' : '14:00~18:00'}` : ''
   appointmentInfo.price = schedule?.price || 0
   
-  // 自动选择第一个就诊人（如果有）
-  if (patients.value.length > 0) {
-    selectedPatient.value = patients.value[0]
-  }
+  // ✨ 加载就诊人列表（自动选择默认就诊人）
+  loadPatients()
 })
 </script>
 
@@ -291,11 +328,39 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 80rpx;
 }
 
-.patient-text {
-  font-size: 26rpx;
+.patient-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.patient-main {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.patient-name {
+  font-size: 28rpx;
+  font-weight: $font-semibold;
   color: $color-slate-900;
+}
+
+.patient-relation {
+  font-size: 22rpx;
+  color: $hospital-primary;
+  background: $hospital-gradient-start;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.patient-phone {
+  font-size: 24rpx;
+  color: $color-slate-600;
 }
 
 .patient-placeholder {
@@ -306,6 +371,7 @@ onMounted(() => {
 .selector-arrow {
   font-size: 32rpx;
   color: $color-slate-400;
+  margin-left: $spacing-sm;
 }
 
 /* 预约信息 */
