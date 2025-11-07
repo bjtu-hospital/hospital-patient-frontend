@@ -1,6 +1,6 @@
 /**
  * 统一请求封装 - uniapp 版本
- * 参考管理端 axios.js 的设计
+
  */
 
 const BASE_URL = 'http://localhost:8000' // 开发环境
