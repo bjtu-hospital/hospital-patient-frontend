@@ -1,72 +1,64 @@
 /**
- * 用户相关接口 - 支持 Mock 数据切换
+ * 用户相关接口
  */
 import request from './request'
+import {
+    mockPatients,
+    mockUserInfo,
+    mockAppointments,
+    mockHealthRecords
+} from '@/pages/profile/user-mock'
 
-// 导入 Mock 数据
-import { 
-  mockPatients,
-  mockUserInfo,
-  mockAppointments,
-  mockHealthRecords,
-  mockConfig,
-  mockDelay 
-} from '@/mock'
+// 是否使用 Mock 数据
+const USE_MOCK = true  // ← 开发阶段使用 Mock 数据
+
+// ==================== 用户信息相关 ====================
 
 /**
  * 获取用户信息
+ * @returns {Promise} 返回用户信息
  */
-export const getUserInfo = async () => {
-  if (mockConfig.enabled) {
-    console.log('[Mock] 使用 Mock 用户信息')
-    await mockDelay()
-    return mockUserInfo
+export const getUserInfo = () => {
+  if (USE_MOCK) {
+    return Promise.resolve(mockUserInfo)
   }
-  
-  console.log('[API] 调用真实接口获取用户信息')
   return request.get('/patient/profile')
 }
 
 /**
  * 更新用户信息
  * @param {Object} data - 用户信息
+ * @returns {Promise} 是否成功
  */
-export const updateUserInfo = async (data) => {
-  if (mockConfig.enabled) {
-    console.log('[Mock] 模拟更新用户信息, data:', data)
-    await mockDelay()
-    // 更新 mockUserInfo（实际应该深拷贝）
+export const updateUserInfo = (data) => {
+  if (USE_MOCK) {
+    // 更新 mockUserInfo
     Object.assign(mockUserInfo, data)
-    return true
+    return Promise.resolve(true)
   }
-  
-  console.log('[API] 调用真实接口更新用户信息')
   return request.put('/patient/profile', data)
 }
 
+// ==================== 就诊人管理 ====================
+
 /**
  * 获取就诊人列表
+ * @returns {Promise} 返回就诊人列表
  */
-export const getPatients = async () => {
-  if (mockConfig.enabled) {
-    console.log('[Mock] 使用 Mock 就诊人数据')
-    await mockDelay()
-    return mockPatients
+export const getPatients = () => {
+  if (USE_MOCK) {
+    return Promise.resolve(mockPatients)
   }
-  
-  console.log('[API] 调用真实接口获取就诊人列表')
   return request.get('/patient/patients')
 }
 
 /**
  * 添加就诊人
  * @param {Object} data - 就诊人信息
+ * @returns {Promise} 返回新增的就诊人ID
  */
-export const addPatient = async (data) => {
-  if (mockConfig.enabled) {
-    console.log('[Mock] 模拟添加就诊人, data:', data)
-    await mockDelay()
-    
+export const addPatient = (data) => {
+  if (USE_MOCK) {
     // 生成新的就诊人
     const newPatient = {
       id: 'patient_' + Date.now(),
@@ -76,10 +68,8 @@ export const addPatient = async (data) => {
     }
     
     mockPatients.push(newPatient)
-    return { id: newPatient.id }
+    return Promise.resolve({ id: newPatient.id })
   }
-  
-  console.log('[API] 调用真实接口添加就诊人')
   return request.post('/patient/patients', data)
 }
 
@@ -87,74 +77,60 @@ export const addPatient = async (data) => {
  * 更新就诊人
  * @param {String} patientId - 就诊人ID
  * @param {Object} data - 就诊人信息
+ * @returns {Promise} 是否成功
  */
-export const updatePatient = async (patientId, data) => {
-  if (mockConfig.enabled) {
-    console.log('[Mock] 模拟更新就诊人, id:', patientId, 'data:', data)
-    await mockDelay()
-    
+export const updatePatient = (patientId, data) => {
+  if (USE_MOCK) {
     const patient = mockPatients.find(p => p.id === patientId)
     if (patient) {
       Object.assign(patient, data)
     }
-    return true
+    return Promise.resolve(true)
   }
-  
-  console.log('[API] 调用真实接口更新就诊人')
   return request.put(`/patient/patients/${patientId}`, data)
 }
 
 /**
  * 删除就诊人
  * @param {String} patientId - 就诊人ID
+ * @returns {Promise} 是否成功
  */
-export const deletePatient = async (patientId) => {
-  if (mockConfig.enabled) {
-    console.log('[Mock] 模拟删除就诊人, id:', patientId)
-    await mockDelay()
-    
+export const deletePatient = (patientId) => {
+  if (USE_MOCK) {
     const index = mockPatients.findIndex(p => p.id === patientId)
     if (index !== -1) {
       mockPatients.splice(index, 1)
     }
-    return true
+    return Promise.resolve(true)
   }
-  
-  console.log('[API] 调用真实接口删除就诊人')
   return request.delete(`/patient/patients/${patientId}`)
 }
 
+// ==================== 健康档案相关 ====================
+
 /**
  * 获取健康档案
+ * @returns {Promise} 返回健康档案信息
  */
-export const getHealthRecords = async () => {
-  if (mockConfig.enabled) {
-    console.log('[Mock] 使用 Mock 健康档案数据')
-    await mockDelay()
-    return mockHealthRecords
+export const getHealthRecords = () => {
+  if (USE_MOCK) {
+    return Promise.resolve(mockHealthRecords)
   }
-  
-  console.log('[API] 调用真实接口获取健康档案')
   return request.get('/patient/health-records')
 }
 
 /**
  * 获取检验报告
  * @param {Object} params - 查询参数
+ * @returns {Promise} 返回检验报告列表
  */
-export const getReports = async (params) => {
-  if (mockConfig.enabled) {
-    console.log('[Mock] 使用 Mock 检验报告数据, params:', params)
-    await mockDelay()
-    
+export const getReports = (params) => {
+  if (USE_MOCK) {
     // 模拟分页数据
-    return {
+    return Promise.resolve({
       total: 0,
       list: []
-    }
+    })
   }
-  
-  console.log('[API] 调用真实接口获取检验报告')
   return request.get('/patient/reports', params)
 }
-
