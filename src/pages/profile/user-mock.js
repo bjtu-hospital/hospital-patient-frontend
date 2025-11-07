@@ -46,8 +46,15 @@ export const mockUserInfo = {
 }
 
 // ==================== 预约记录 ====================
-export const mockAppointments = [
-  {
+// 生成动态日期的预约记录
+const generateMockAppointments = () => {
+  const appointments = []
+  const today = new Date()
+  
+  // 待就诊的预约（未来日期）
+  const futureDate1 = new Date(today)
+  futureDate1.setDate(today.getDate() + 2)
+  appointments.push({
     id: 'appointment_001',
     orderNo: '20241108001',
     hospitalName: '北京交通大学校医院（本部）',
@@ -55,7 +62,7 @@ export const mockAppointments = [
     doctorName: '张医生',
     doctorTitle: '主治医师',
     doctorAvatar: '/static/logo.png',
-    appointmentDate: '2024-11-10',
+    appointmentDate: futureDate1.toISOString().split('T')[0],
     appointmentTime: '上午 08:00-08:30',
     patientName: '张三',
     queueNumber: '15',
@@ -63,45 +70,100 @@ export const mockAppointments = [
     status: 'pending',  // pending待就诊/completed已完成/cancelled已取消
     canCancel: true,
     canReschedule: true,
-    createdAt: '2024-11-08 10:00:00'
-  },
-  {
+    createdAt: today.toISOString().replace('T', ' ').slice(0, 19)
+  })
+  
+  const futureDate2 = new Date(today)
+  futureDate2.setDate(today.getDate() + 5)
+  appointments.push({
     id: 'appointment_002',
-    orderNo: '20241107001',
+    orderNo: '20241108002',
+    hospitalName: '北京交通大学校医院（东校区）',
+    departmentName: '呼吸内科',
+    doctorName: '李主任',
+    doctorTitle: '主任医师',
+    doctorAvatar: '/static/logo.png',
+    appointmentDate: futureDate2.toISOString().split('T')[0],
+    appointmentTime: '下午 14:00-14:30',
+    patientName: '李四',
+    queueNumber: '8',
+    price: 100,
+    status: 'pending',
+    canCancel: true,
+    canReschedule: true,
+    createdAt: today.toISOString().replace('T', ' ').slice(0, 19)
+  })
+  
+  // 已完成的预约（过去日期）
+  const pastDate1 = new Date(today)
+  pastDate1.setDate(today.getDate() - 3)
+  appointments.push({
+    id: 'appointment_003',
+    orderNo: '20241105001',
     hospitalName: '北京交通大学校医院（本部）',
     departmentName: '眼科',
-    doctorName: '李医生',
+    doctorName: '王医生',
     doctorTitle: '副主任医师',
     doctorAvatar: '/static/logo.png',
-    appointmentDate: '2024-11-07',
-    appointmentTime: '下午 14:00-14:30',
+    appointmentDate: pastDate1.toISOString().split('T')[0],
+    appointmentTime: '上午 09:00-09:30',
     patientName: '张三',
-    queueNumber: '8',
+    queueNumber: '5',
     price: 70,
     status: 'completed',
     canCancel: false,
     canReschedule: false,
-    createdAt: '2024-11-05 15:30:00'
-  },
-  {
-    id: 'appointment_003',
+    createdAt: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
+  })
+  
+  const pastDate2 = new Date(today)
+  pastDate2.setDate(today.getDate() - 7)
+  appointments.push({
+    id: 'appointment_004',
+    orderNo: '20241101001',
+    hospitalName: '北京交通大学校医院（本部）',
+    departmentName: '消化内科',
+    doctorName: '赵医生',
+    doctorTitle: '主治医师',
+    doctorAvatar: '/static/logo.png',
+    appointmentDate: pastDate2.toISOString().split('T')[0],
+    appointmentTime: '上午 10:00-10:30',
+    patientName: '张三',
+    queueNumber: '12',
+    price: 50,
+    status: 'completed',
+    canCancel: false,
+    canReschedule: false,
+    createdAt: new Date(today.getTime() - 9 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
+  })
+  
+  // 已取消的预约
+  const pastDate3 = new Date(today)
+  pastDate3.setDate(today.getDate() - 2)
+  appointments.push({
+    id: 'appointment_005',
     orderNo: '20241106001',
     hospitalName: '北京交通大学校医院（本部）',
     departmentName: '口腔科',
-    doctorName: '王医生',
+    doctorName: '孙医生',
     doctorTitle: '主任医师',
     doctorAvatar: '/static/logo.png',
-    appointmentDate: '2024-11-06',
-    appointmentTime: '上午 09:00-09:30',
-    patientName: '李四',
+    appointmentDate: pastDate3.toISOString().split('T')[0],
+    appointmentTime: '下午 15:00-15:30',
+    patientName: '王五',
     queueNumber: '3',
     price: 100,
     status: 'cancelled',
     canCancel: false,
     canReschedule: false,
-    createdAt: '2024-11-04 11:20:00'
-  }
-]
+    createdAt: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
+  })
+  
+  return appointments
+}
+
+// 导出可修改的预约数据（动态生成）
+export const mockAppointments = generateMockAppointments()
 
 // ==================== 健康档案 ====================
 export const mockHealthRecords = {
