@@ -71,11 +71,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
+import { getDepartments } from '@/api/appointment'  // ✨ 直接使用 API
 
 const appointmentStore = useAppointmentStore()
 const currentHospital = ref(null)
 const selectedCategory = ref('internal')
 const searchKeyword = ref('')
+const loading = ref(false)
 
 // 大科室分类
 const categories = ref([
@@ -91,55 +93,31 @@ const categories = ref([
   { key: 'international', name: '国际医疗部' }
 ])
 
-// 科室数据（完整版）
-const departments = ref([
-  // 内科
-  { id: 1, name: '呼吸与危重症医学科门诊', category: 'internal', todaySlots: 8, tomorrowSlots: 10, priceRange: '¥15-50' },
-  { id: 2, name: '呼吸睡眠医学科门诊（西直门）', category: 'internal', todaySlots: 6, tomorrowSlots: 8, priceRange: '¥15-50' },
-  { id: 3, name: '消化内科门诊', category: 'internal', todaySlots: 10, tomorrowSlots: 12, priceRange: '¥15-50' },
-  { id: 4, name: '肝病门诊（西直门院区）', category: 'internal', todaySlots: 5, tomorrowSlots: 7, priceRange: '¥15-50' },
-  { id: 5, name: '心内科门诊（西直门院区）', category: 'internal', todaySlots: 12, tomorrowSlots: 15, priceRange: '¥15-50' },
-  { id: 6, name: '高血压科门诊(西直门)', category: 'internal', todaySlots: 25, tomorrowSlots: 25, priceRange: '¥15-50' },
-  { id: 7, name: '肾内科门诊', category: 'internal', todaySlots: 8, tomorrowSlots: 9, priceRange: '¥15-50' },
-  { id: 8, name: '血液科门诊', category: 'internal', todaySlots: 6, tomorrowSlots: 8, priceRange: '¥15-50' },
-  { id: 9, name: '内分泌科门诊', category: 'internal', todaySlots: 15, tomorrowSlots: 18, priceRange: '¥15-50' },
+// 科室数据（从 API 获取）
+const departments = ref([])
+
+// 加载科室数据
+const loadDepartments = async () => {
+  if (!currentHospital.value?.id) {
+    console.warn('没有选择医院')
+    return
+  }
   
-  // 外科
-  { id: 101, name: '普通外科', category: 'surgical', todaySlots: 8, tomorrowSlots: 10, priceRange: '¥20-60' },
-  { id: 102, name: '骨科门诊', category: 'surgical', todaySlots: 12, tomorrowSlots: 15, priceRange: '¥20-60' },
-  { id: 103, name: '泌尿外科', category: 'surgical', todaySlots: 6, tomorrowSlots: 8, priceRange: '¥20-60' },
-  { id: 104, name: '神经外科', category: 'surgical', todaySlots: 5, tomorrowSlots: 7, priceRange: '¥20-80' },
-  
-  // 妇产科
-  { id: 201, name: '妇科门诊', category: 'gynecology', todaySlots: 15, tomorrowSlots: 18, priceRange: '¥25-60' },
-  { id: 202, name: '产科门诊', category: 'gynecology', todaySlots: 10, tomorrowSlots: 12, priceRange: '¥25-60' },
-  
-  // 儿科
-  { id: 301, name: '儿科门诊', category: 'pediatrics', todaySlots: 20, tomorrowSlots: 25, priceRange: '¥15-40' },
-  { id: 302, name: '新生儿科', category: 'pediatrics', todaySlots: 8, tomorrowSlots: 10, priceRange: '¥15-40' },
-  
-  // 五官科
-  { id: 401, name: '眼科门诊', category: 'ent', todaySlots: 12, tomorrowSlots: 15, priceRange: '¥25-70' },
-  { id: 402, name: '耳鼻喉科', category: 'ent', todaySlots: 10, tomorrowSlots: 12, priceRange: '¥25-60' },
-  { id: 403, name: '口腔科', category: 'ent', todaySlots: 15, tomorrowSlots: 18, priceRange: '¥30-100' },
-  
-  // 中医科
-  { id: 501, name: '中医内科', category: 'tcm', todaySlots: 8, tomorrowSlots: 10, priceRange: '¥20-50' },
-  { id: 502, name: '针灸科', category: 'tcm', todaySlots: 6, tomorrowSlots: 8, priceRange: '¥30-60' },
-  
-  // 皮科
-  { id: 601, name: '皮肤科', category: 'dermatology', todaySlots: 12, tomorrowSlots: 15, priceRange: '¥25-60' },
-  
-  // 其他科
-  { id: 701, name: '心理咨询科', category: 'other', todaySlots: 5, tomorrowSlots: 6, priceRange: '¥80-200' },
-  { id: 702, name: '康复医学科', category: 'other', todaySlots: 8, tomorrowSlots: 10, priceRange: '¥40-100' },
-  
-  // 术前管理中心
-  { id: 801, name: '术前评估门诊', category: 'preop', todaySlots: 10, tomorrowSlots: 12, priceRange: '¥30-80' },
-  
-  // 国际医疗部
-  { id: 901, name: '国际医疗门诊', category: 'international', todaySlots: 5, tomorrowSlots: 6, priceRange: '¥200-500' }
-])
+  try {
+    loading.value = true
+    // ✨ 调用 API，自动判断使用 Mock 还是真实接口
+    const data = await getDepartments(currentHospital.value.id)
+    departments.value = data
+  } catch (error) {
+    console.error('获取科室列表失败:', error)
+    uni.showToast({
+      title: '加载失败，请重试',
+      icon: 'none'
+    })
+  } finally {
+    loading.value = false
+  }
+}
 
 // 过滤后的科室列表
 const filteredDepartments = computed(() => {
@@ -195,8 +173,8 @@ onMounted(() => {
   // 从 Store 获取选中的医院信息
   currentHospital.value = appointmentStore.selectedHospital
   
-  // 如果没有医院信息，不做任何处理
-  // 页面会显示空数据，用户看到异常会回到正确流程
+  // 加载科室列表
+  loadDepartments()
 })
 </script>
 

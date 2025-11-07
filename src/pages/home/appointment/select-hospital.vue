@@ -68,66 +68,35 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useAppointmentStore } from '@/stores/appointment'
+import { getHospitals } from '@/api/appointment'  // ✨ 直接使用 API
 
+const appointmentStore = useAppointmentStore()
 const searchKeyword = ref('')
 const sortMode = ref('default') // default, distance, name
+const loading = ref(false)
 
-// 医院数据
-const hospitals = ref([
-  {
-    id: 1,
-    name: '北京交通大学校医院（本部）',
-    level: '三甲',
-    type: '综合医院',
-    address: '北京市西城区西直门南大街11号',
-    image: '/static/logo.png', // 替换为实际图片
-    distance: 1.2,
-    isOpen: true,
-    departmentCount: 15,
-    doctorCount: 48,
-    availableSlots: 126
-  },
-  {
-    id: 2,
-    name: '北京交通大学校医院（东校区）',
-    level: '三甲',
-    type: '综合医院',
-    address: '北京市朝阳区平乐园100号',
-    image: '/static/logo.png',
-    distance: 8.5,
-    isOpen: true,
-    departmentCount: 8,
-    doctorCount: 22,
-    availableSlots: 64
-  },
-  {
-    id: 3,
-    name: '北京交通大学校医院（通州）',
-    level: '三甲',
-    type: '综合医院',
-    address: '北京市通州区潞县镇南凤一路39号院',
-    image: '/static/logo.png',
-    distance: 25.3,
-    isOpen: true,
-    departmentCount: 12,
-    doctorCount: 35,
-    availableSlots: 88
-  },
-  {
-    id: 4,
-    name: '北京交通大学校医院(互联网)',
-    level: '三甲',
-    type: '',
-    address: '',
-    image: '/static/logo.png',
-    distance: 0,
-    isOpen: true,
-    departmentCount: 5,
-    doctorCount: 15,
-    availableSlots: 50
+// 医院数据（从 API 获取）
+const hospitals = ref([])
+
+// 加载医院数据
+const loadHospitals = async () => {
+  try {
+    loading.value = true
+    // ✨ 调用 API，自动判断使用 Mock 还是真实接口
+    const data = await getHospitals()
+    hospitals.value = data
+  } catch (error) {
+    console.error('获取医院列表失败:', error)
+    uni.showToast({
+      title: '加载失败，请重试',
+      icon: 'none'
+    })
+  } finally {
+    loading.value = false
   }
-])
+}
 
 // 排序文本
 const sortText = computed(() => {
@@ -193,7 +162,6 @@ const handleSearch = () => {
 // 选择医院
 const selectHospital = (hospital) => {
   // 使用 Pinia Store 保存选择
-  const appointmentStore = useAppointmentStore()
   appointmentStore.setSelectedHospital(hospital)
   
   // 跳转到选择科室页面
@@ -202,8 +170,10 @@ const selectHospital = (hospital) => {
   })
 }
 
-// 导入 Store
-import { useAppointmentStore } from '@/stores/appointment'
+// 页面加载时获取医院列表
+onMounted(() => {
+  loadHospitals()
+})
 </script>
 
 <style lang="scss" scoped>

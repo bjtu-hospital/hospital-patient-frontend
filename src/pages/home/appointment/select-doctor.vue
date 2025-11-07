@@ -107,12 +107,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
+import { getDoctorSchedules } from '@/api/appointment'  // ✨ 直接使用 API
 
 const appointmentStore = useAppointmentStore()
 const currentHospital = ref(null)
 const currentDepartment = ref(null)
 const selectedDate = ref('all')
 const selectedType = ref('normal')
+const loading = ref(false)
 
 // 生成可选日期（未来7天）
 const generateAvailableDates = () => {
@@ -155,27 +157,35 @@ const appointmentTypes = ref([
   { key: 'special', name: '专病门诊' }
 ])
 
-// 模拟医生排班数据
-const schedules = ref([
-  // 2025-11-01
-  { id: 1, doctorName: '刘靖', date: '2025-11-01', period: '上午', appointmentType: '普通', type: 'normal', price: 50, availableSlots: 0 },
-  { id: 2, doctorName: '王鲁雁', date: '2025-11-01', period: '下午', appointmentType: '普通', type: 'normal', price: 50, availableSlots: 0 },
-  { id: 3, doctorName: '喜杨', date: '2025-11-01', period: '下午', appointmentType: '普通', type: 'normal', price: 50, availableSlots: 0 },
+// 医生排班数据（从 API 获取）
+const schedules = ref([])
+
+// 加载医生排班
+const loadSchedules = async () => {
+  if (!currentDepartment.value?.id) {
+    console.warn('没有选择科室')
+    return
+  }
   
-  // 2025-11-02
-  { id: 4, doctorName: '孙宁玲', date: '2025-11-02', period: '上午', appointmentType: '普通', type: 'normal', price: 50, availableSlots: 0 },
-  { id: 5, doctorName: '王鸿懿', date: '2025-11-02', period: '上午', appointmentType: '普通', type: 'normal', price: 50, availableSlots: 0 },
-  { id: 6, doctorName: '陈源源', date: '2025-11-02', period: '下午', appointmentType: '普通', type: 'normal', price: 50, availableSlots: 0 },
-  
-  // 2025-11-03
-  { id: 7, doctorName: '张医生', date: '2025-11-03', period: '上午', appointmentType: '普通', type: 'normal', price: 50, availableSlots: 25 },
-  { id: 8, doctorName: '李主任', date: '2025-11-03', period: '上午', appointmentType: '专家', type: 'expert', price: 100, availableSlots: 10 },
-  { id: 9, doctorName: '王教授', date: '2025-11-03', period: '下午', appointmentType: '特需', type: 'expert', price: 200, availableSlots: 5 },
-  
-  // 专病门诊
-  { id: 10, doctorName: '高血压出院随访门诊', date: '2025-11-03', period: '上午', appointmentType: '专病', type: 'special', price: 50, availableSlots: 15 },
-  { id: 11, doctorName: '妊娠相关高血压专业门诊', date: '2025-11-03', period: '下午', appointmentType: '专病', type: 'special', price: 60, availableSlots: 8 }
-])
+  try {
+    loading.value = true
+    // ✨ 调用 API，自动判断使用 Mock 还是真实接口
+    const data = await getDoctorSchedules({
+      hospitalId: currentHospital.value?.id,
+      departmentId: currentDepartment.value.id,
+      // date 参数可选，不传则返回未来7天
+    })
+    schedules.value = data
+  } catch (error) {
+    console.error('获取医生排班失败:', error)
+    uni.showToast({
+      title: '加载失败，请重试',
+      icon: 'none'
+    })
+  } finally {
+    loading.value = false
+  }
+}
 
 // 按日期和类型过滤并分组
 const groupedDoctors = computed(() => {
@@ -258,8 +268,8 @@ onMounted(() => {
   currentHospital.value = appointmentStore.selectedHospital
   currentDepartment.value = appointmentStore.selectedDepartment
   
-  // 生成可选日期
-  generateAvailableDates()
+  // 加载医生排班
+  loadSchedules()
 })
 </script>
 
