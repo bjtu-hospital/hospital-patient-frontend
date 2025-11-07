@@ -7,6 +7,7 @@ import {
     mockDepartments,
     mockSchedules
 } from '@/pages/home/appointment/appointment-mock'
+import { mockAppointments } from '@/pages/profile/user-mock'
 
 // 是否使用 Mock 数据
 const USE_MOCK = true  // ← 开发阶段使用 Mock 数据
@@ -95,10 +96,22 @@ export const createAppointment = (data) => {
  */
 export const getMyAppointments = (params) => {
   if (USE_MOCK) {
-    // 暂时返回空列表
+    // 根据状态过滤
+    let filtered = mockAppointments
+    
+    if (params && params.status && params.status !== 'all') {
+      filtered = filtered.filter(a => a.status === params.status)
+    }
+    
+    // 模拟分页
+    const page = params?.page || 1
+    const pageSize = params?.pageSize || 10
+    const start = (page - 1) * pageSize
+    const end = start + pageSize
+    
     return Promise.resolve({
-      total: 0,
-      list: []
+      total: filtered.length,
+      list: filtered.slice(start, end)
     })
   }
   return request.get('/patient/appointments', params)
@@ -111,6 +124,13 @@ export const getMyAppointments = (params) => {
  */
 export const cancelAppointment = (appointmentId) => {
   if (USE_MOCK) {
+    // 在 Mock 数据中找到预约并更新状态
+    const appointment = mockAppointments.find(a => a.id === appointmentId)
+    if (appointment) {
+      appointment.status = 'cancelled'
+      appointment.canCancel = false
+      appointment.canReschedule = false
+    }
     return Promise.resolve(true)
   }
   return request.put(`/patient/appointments/${appointmentId}/cancel`)

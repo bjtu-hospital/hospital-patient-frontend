@@ -45,18 +45,20 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { getMyAppointments, cancelAppointment as cancelAppointmentApi } from '@/api/appointment'
 
 const selectedStatus = ref('all')
+const loading = ref(false)
 
 // 状态标签
 const statusTabs = ref([
-  { key: 'all', name: '全部', count: 8 },
-  { key: 'pending', name: '待就诊', count: 2 },
-  { key: 'completed', name: '已完成', count: 5 },
-  { key: 'cancelled', name: '已取消', count: 1 }
+  { key: 'all', name: '全部', count: 0 },
+  { key: 'pending', name: '待就诊', count: 0 },
+  { key: 'completed', name: '已完成', count: 0 },
+  { key: 'cancelled', name: '已取消', count: 0 }
 ])
 
-// 预约数据 - 从本地存储加载
+// 预约数据
 const appointments = ref([])
 
 // 过滤后的预约列表
@@ -70,6 +72,8 @@ const filteredAppointments = computed(() => {
 // 切换状态
 const switchStatus = (statusKey) => {
   selectedStatus.value = statusKey
+  // 切换状态时重新加载数据
+  loadAppointments()
 }
 
 // 获取状态文本
@@ -93,68 +97,98 @@ const viewDetails = (appointment) => {
   })
 }
 
-// 取消预约 - 使用新的 UI 工具函数，代码更简洁！
+// 取消预约
 const cancelAppointment = async (appointment) => {
-  // 动态导入工具函数
-  const { showConfirm, showSuccess } = await import('@/utils/ui')
-  
-  const confirmed = await showConfirm({
+  // 弹出确认框
+  uni.showModal({
     title: '取消预约',
-    content: '确定要取消这个预约吗？取消后可能需要重新预约。'
+    content: '确定要取消这个预约吗？取消后可能需要重新预约。',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          uni.showLoading({ title: '取消中...' })
+          
+          // ✨ 调用 API 取消预约（自动判断 Mock/真实接口）
+          await cancelAppointmentApi(appointment.id)
+          
+          uni.hideLoading()
+          uni.showToast({
+            title: '预约已取消',
+            icon: 'success'
+          })
+          
+          // 刷新数据
+          loadAppointments()
+          
+        } catch (error) {
+          uni.hideLoading()
+          uni.showToast({
+            title: error.message || '取消失败',
+            icon: 'none'
+          })
+        }
+      }
+    }
   })
-  
-  if (confirmed) {
-    // 更新状态
-    appointment.status = 'cancelled'
-    
-    // 保存到本地存储
-    uni.setStorageSync('myAppointments', appointments.value)
-    
-    // 刷新数据
-    loadAppointments()
-    
-    showSuccess('预约已取消')
-  }
 }
 
-// 改约 - 使用新的 UI 工具函数
+// 改约
 const rescheduleAppointment = async (appointment) => {
-  const { showAlert } = await import('@/utils/ui')
-  await showAlert({
+  uni.showModal({
     title: '改约',
-    content: '改约功能开发中，请稍后再试。'
+    content: '改约功能开发中，请稍后再试。',
+    showCancel: false
   })
 }
 
-// 评价 - 使用新的 UI 工具函数
+// 评价
 const evaluateAppointment = async (appointment) => {
-  const { showAlert } = await import('@/utils/ui')
-  await showAlert({
+  uni.showModal({
     title: '评价医生',
-    content: '评价功能开发中，请稍后再试。'
+    content: '评价功能开发中，请稍后再试。',
+    showCancel: false
   })
 }
 
-// 去预约 - 使用新的导航工具函数
-const goToAppointment = async () => {
-  const { navigateTo } = await import('@/utils/navigation')
-  navigateTo('/pages/home/appointment/select-hospital')
+// 去预约
+const goToAppointment = () => {
+  uni.navigateTo({
+    url: '/pages/home/appointment/select-hospital'
+  })
 }
 
 // 加载预约数据
-const loadAppointments = () => {
-  // 从本地存储获取预约数据（模拟）
-  const savedAppointments = uni.getStorageSync('myAppointments') || []
-  appointments.value = savedAppointments
-  
-  // 更新状态标签计数
-  statusTabs.value.forEach(tab => {
-    if (tab.key === 'all') {
-      tab.count = appointments.value.length
-    } else {
-      tab.count = appointments.value.filter(a => a.status === tab.key).length
-    }
-  })
+const loadAppointments = async () => {
+  try {
+    loading.value = true
+    
+    // ✨ 调用 API 获取预约列表（自动判断 Mock/真实接口）
+    const result = await getMyAppointments({
+      status: selectedStatus.value === 'all' ? undefined : selectedStatus.value,
+      page: 1,
+      pageSize: 100
+    })
+    
+    appointments.value = result.list || []
+    
+    // 更新状态标签计数
+    statusTabs.value.forEach(tab => {
+      if (tab.key === 'all') {
+        tab.count = result.total || 0
+      } else {
+        tab.count = appointments.value.filter(a => a.status === tab.key).length
+      }
+    })
+    
+  } catch (error) {
+    console.error('获取预约列表失败:', error)
+    uni.showToast({
+      title: '加载失败',
+      icon: 'none'
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => {
