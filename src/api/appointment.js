@@ -5,7 +5,8 @@ import request from './request'
 import {
     mockHospitals,
     mockDepartments,
-    mockSchedules
+    mockSchedules,
+    mockWaitlist
 } from '@/pages/home/appointment/appointment-mock'
 import { mockAppointments } from '@/pages/profile/user-mock'
 
@@ -149,18 +150,62 @@ export const rescheduleAppointment = (appointmentId, data) => {
   return request.put(`/patient/appointments/${appointmentId}/reschedule`, data)
 }
 
+// ==================== 候补相关 ====================
+
 /**
- * 候补预约
- * @param {Object} data - 候补信息
+ * 加入候补
+ * @param {Object} data - 候补信息 { scheduleId, patientId }
  * @returns {Promise} 候补结果
  */
 export const createWaitlist = (data) => {
   if (USE_MOCK) {
-    const result = {
-      waitlistId: 'waitlist_' + Date.now(),
-      position: Math.floor(Math.random() * 10) + 1
+    // 计算当前候补位置
+    const existingCount = mockWaitlist.filter(
+      w => w.scheduleId === data.scheduleId && w.status === 'waiting'
+    ).length
+    
+    const newWaitlist = {
+      id: 'waitlist_' + Date.now(),
+      scheduleId: data.scheduleId,
+      patientId: data.patientId,
+      position: existingCount + 1,
+      status: 'waiting',
+      createdAt: new Date().toISOString()
     }
-    return Promise.resolve(result)
+    
+    mockWaitlist.push(newWaitlist)
+    
+    return Promise.resolve({
+      waitlistId: newWaitlist.id,
+      position: newWaitlist.position
+    })
   }
   return request.post('/patient/waitlist', data)
+}
+
+/**
+ * 获取我的候补列表
+ * @returns {Promise} 返回候补列表
+ */
+export const getMyWaitlist = () => {
+  if (USE_MOCK) {
+    return Promise.resolve(mockWaitlist)
+  }
+  return request.get('/patient/waitlist')
+}
+
+/**
+ * 取消候补
+ * @param {String} waitlistId - 候补ID
+ * @returns {Promise} 是否成功
+ */
+export const cancelWaitlist = (waitlistId) => {
+  if (USE_MOCK) {
+    const index = mockWaitlist.findIndex(w => w.id === waitlistId)
+    if (index !== -1) {
+      mockWaitlist.splice(index, 1)
+    }
+    return Promise.resolve(true)
+  }
+  return request.delete(`/patient/waitlist/${waitlistId}`)
 }

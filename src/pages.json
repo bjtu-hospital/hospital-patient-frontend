@@ -74,12 +74,18 @@
 				"navigationBarTitleText": "就诊人管理"
 			}
 		},
-		{
-			"path": "pages/profile/health",
-			"style": {
-				"navigationBarTitleText": "健康档案"
-			}
-		},
+	{
+		"path": "pages/profile/health",
+		"style": {
+			"navigationBarTitleText": "健康档案"
+		}
+	},
+	{
+		"path": "pages/profile/waitlist",
+		"style": {
+			"navigationBarTitleText": "我的候补"
+		}
+	},
 	{
 		"path": "pages/message/index",
 		"style": {
