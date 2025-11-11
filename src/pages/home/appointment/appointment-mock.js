@@ -495,7 +495,7 @@ const generateMockSchedules = () => {
   for (let index = 0; index < dates.length; index++) {
     const date = dates[index]
     // ========== 心内科 (dept_005) - 每天都有 ==========
-    // 普通门诊 - 上午
+    // 普通门诊 - 上午（今天和明天约满，用来测试候补功能）
     schedules.push({
       id: `schedule_${scheduleId++}`,
       doctorId: 'doctor_001',
@@ -509,7 +509,7 @@ const generateMockSchedules = () => {
       appointmentType: '普通',
       type: 'normal',
       price: 50,
-      availableSlots: index === 0 ? 5 : 20,  // 今天少，其他天多
+      availableSlots: index < 2 ? 0 : 20,  // ✨ 今天明天约满，用于测试候补
       totalSlots: 25
     })
     
@@ -527,7 +527,7 @@ const generateMockSchedules = () => {
       appointmentType: '普通',
       type: 'normal',
       price: 50,
-      availableSlots: index === 0 ? 8 : 18,
+      availableSlots: index === 0 ? 0 : 18,  // ✨ 今天约满
       totalSlots: 20
     })
     
@@ -760,6 +760,61 @@ const generateMockSchedules = () => {
 
 // 导出动态生成的排班数据
 export const mockSchedules = generateMockSchedules()
+
+// ==================== 候补记录数据 ====================
+const generateMockWaitlist = () => {
+  const waitlist = []
+  const today = new Date()
+  
+  // 候补记录1 - 候补中
+  const waitDate1 = new Date(today)
+  waitDate1.setDate(today.getDate() + 3)
+  waitlist.push({
+    id: 'waitlist_001',
+    scheduleId: 'schedule_001',
+    patientId: 'patient_001',
+    patientName: '张三',
+    hospitalName: '北京交通大学校医院（本部）',
+    departmentName: '心内科门诊',
+    doctorName: '刘靖',
+    doctorTitle: '主治医师',
+    appointmentDate: waitDate1.toISOString().split('T')[0],
+    appointmentTime: '上午 08:00-12:00',
+    period: '上午',
+    price: 50,
+    position: 3,              // 候补位置
+    status: 'waiting',        // waiting候补中/success已成功/expired已过期/cancelled已取消
+    expiryDate: waitDate1.toISOString().split('T')[0],
+    createdAt: today.toISOString().replace('T', ' ').slice(0, 19)
+  })
+  
+  // 候补记录2 - 候补成功（已转为预约）
+  const waitDate2 = new Date(today)
+  waitDate2.setDate(today.getDate() + 5)
+  waitlist.push({
+    id: 'waitlist_002',
+    scheduleId: 'schedule_007',
+    patientId: 'patient_002',
+    patientName: '李四',
+    hospitalName: '北京交通大学校医院（东校区）',
+    departmentName: '呼吸内科门诊',
+    doctorName: '陈源源',
+    doctorTitle: '主治医师',
+    appointmentDate: waitDate2.toISOString().split('T')[0],
+    appointmentTime: '下午 14:00-17:00',
+    period: '下午',
+    price: 50,
+    position: 1,
+    status: 'success',        // 候补成功
+    appointmentId: 'appointment_' + Date.now(),  // 转换后的预约ID
+    createdAt: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
+  })
+  
+  return waitlist
+}
+
+// 导出可修改的候补数据
+export const mockWaitlist = generateMockWaitlist()
 
 // ==================== 医生信息数据 ====================
 export const mockDoctors = [

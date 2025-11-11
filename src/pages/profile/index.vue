@@ -20,9 +20,20 @@
 
     <!-- 我的预约 -->
     <view class="appointment-section">
-      <text class="section-title">我的预约</text>
+      <text class="section-title">预约管理</text>
       <view class="appointment-item" @tap="goToAppointments">
-        <text class="appointment-text">查看我的预约记录</text>
+        <view class="item-icon">
+          <uni-icons type="calendar" size="24" color="#00D5D9"></uni-icons>
+        </view>
+        <text class="appointment-text">我的预约</text>
+        <text class="item-arrow">›</text>
+      </view>
+      <view class="appointment-item" @tap="goToWaitlist">
+        <view class="item-icon">
+          <uni-icons type="notification" size="24" color="#00D5D9"></uni-icons>
+        </view>
+        <text class="appointment-text">我的候补</text>
+        <text class="item-arrow">›</text>
       </view>
     </view>
 
@@ -30,10 +41,18 @@
     <view class="health-section">
       <text class="section-title">健康管理</text>
       <view class="health-item" @tap="goToHealth">
+        <view class="item-icon">
+          <uni-icons type="heart" size="24" color="#00D5D9"></uni-icons>
+        </view>
         <text class="health-text">健康档案</text>
+        <text class="item-arrow">›</text>
       </view>
       <view class="health-item" @tap="goToReports">
+        <view class="item-icon">
+          <uni-icons type="paperplane" size="24" color="#00D5D9"></uni-icons>
+        </view>
         <text class="health-text">检验报告</text>
+        <text class="item-arrow">›</text>
       </view>
     </view>
 
@@ -41,13 +60,25 @@
     <view class="other-section">
       <text class="section-title">其他功能</text>
       <view class="other-item" @tap="goToFeedback">
+        <view class="item-icon">
+          <uni-icons type="chatbubble" size="24" color="#00D5D9"></uni-icons>
+        </view>
         <text class="other-text">意见反馈</text>
+        <text class="item-arrow">›</text>
       </view>
       <view class="other-item" @tap="goToDoctors">
+        <view class="item-icon">
+          <uni-icons type="contact" size="24" color="#00D5D9"></uni-icons>
+        </view>
         <text class="other-text">科室专家</text>
+        <text class="item-arrow">›</text>
       </view>
       <view class="other-item" @tap="goToAI">
+        <view class="item-icon">
+          <uni-icons type="help" size="24" color="#00D5D9"></uni-icons>
+        </view>
         <text class="other-text">AI助手</text>
+        <text class="item-arrow">›</text>
       </view>
     </view>
 
@@ -79,6 +110,12 @@ const goToPatients = () => {
 const goToAppointments = () => {
   uni.navigateTo({
     url: '/pages/profile/appointments'
+  })
+}
+
+const goToWaitlist = () => {
+  uni.navigateTo({
+    url: '/pages/profile/waitlist'
   })
 }
 
@@ -239,13 +276,36 @@ onMounted(() => {
   border-radius: 8rpx;
   margin-bottom: 12rpx;
   border: 1rpx solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.appointment-item:active,
+.health-item:active,
+.other-item:active {
+  background: #f1f5f9;
+  transform: translateX(4rpx);
+}
+
+.item-icon {
+  margin-right: 16rpx;
+  display: flex;
+  align-items: center;
 }
 
 .appointment-text,
 .health-text,
 .other-text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: #374151;
+  flex: 1;
+}
+
+.item-arrow {
+  font-size: 28rpx;
+  color: #94a3b8;
+  margin-left: 12rpx;
 }
 
 /* 退出登录 */
