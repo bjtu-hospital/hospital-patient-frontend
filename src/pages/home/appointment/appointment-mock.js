@@ -10,7 +10,7 @@ export const mockHospitals = [
     level: '三甲',
     type: '综合医院',
     address: '北京市西城区西直门南大街11号',
-    image: '/static/logo.png',
+    image: '/static/hospital-1.png',
     distance: 1.2,
     isOpen: true,
     departmentCount: 15,
@@ -23,7 +23,7 @@ export const mockHospitals = [
     level: '三甲',
     type: '综合医院',
     address: '北京市朝阳区平乐园100号',
-    image: '/static/logo.png',
+    image: '/static/hospital-1.png',
     distance: 8.5,
     isOpen: true,
     departmentCount: 8,
@@ -36,7 +36,7 @@ export const mockHospitals = [
     level: '三甲',
     type: '综合医院',
     address: '北京市通州区潞县镇南凤一路39号院',
-    image: '/static/logo.png',
+    image: '/static/hospital-1.png',
     distance: 25.3,
     isOpen: true,
     departmentCount: 12,
@@ -49,7 +49,7 @@ export const mockHospitals = [
     level: '三甲',
     type: '',
     address: '',
-    image: '/static/logo.png',
+    image: '/static/hospital-1.png',
     distance: 0,
     isOpen: true,
     departmentCount: 5,
@@ -781,6 +781,7 @@ const generateMockWaitlist = () => {
     appointmentDate: waitDate1.toISOString().split('T')[0],
     appointmentTime: '上午 08:00-12:00',
     period: '上午',
+    appointmentType: '普通门诊',
     price: 50,
     position: 3,              // 候补位置
     status: 'waiting',        // waiting候补中/success已成功/expired已过期/cancelled已取消
@@ -803,7 +804,8 @@ const generateMockWaitlist = () => {
     appointmentDate: waitDate2.toISOString().split('T')[0],
     appointmentTime: '下午 14:00-17:00',
     period: '下午',
-    price: 50,
+    appointmentType: '专家门诊',
+    price: 100,
     position: 1,
     status: 'success',        // 候补成功
     appointmentId: 'appointment_' + Date.now(),  // 转换后的预约ID

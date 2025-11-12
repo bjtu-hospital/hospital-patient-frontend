@@ -8,7 +8,7 @@ import {
     mockSchedules,
     mockWaitlist
 } from '@/pages/home/appointment/appointment-mock'
-import { mockAppointments } from '@/pages/profile/user-mock'
+import { mockAppointments, mockPatients } from '@/pages/profile/user-mock'
 
 // 是否使用 Mock 数据
 const USE_MOCK = true  // ← 开发阶段使用 Mock 数据
@@ -164,13 +164,33 @@ export const createWaitlist = (data) => {
       w => w.scheduleId === data.scheduleId && w.status === 'waiting'
     ).length
     
+    // 从排班数据中查找对应的排班信息
+    const schedule = mockSchedules.find(s => s.id === data.scheduleId) || {}
+    
+    // 从就诊人数据中查找就诊人信息
+    const patient = mockPatients.find(p => p.id === data.patientId) || {}
+    
+    const today = new Date()
+    const appointmentDate = schedule.date || today.toISOString().split('T')[0]
+    
     const newWaitlist = {
       id: 'waitlist_' + Date.now(),
       scheduleId: data.scheduleId,
       patientId: data.patientId,
+      patientName: patient.name || '未知',
+      hospitalName: schedule.hospitalName || '北京交通大学校医院（本部）',
+      departmentName: schedule.departmentName || '未知科室',
+      doctorName: schedule.doctorName || '未知医生',
+      doctorTitle: schedule.doctorTitle || '',
+      appointmentDate: appointmentDate,
+      appointmentTime: schedule.timeSlot || '上午 08:00-12:00',
+      period: schedule.period || '上午',
+      appointmentType: schedule.type || '普通门诊',
+      price: schedule.price || 50,
       position: existingCount + 1,
       status: 'waiting',
-      createdAt: new Date().toISOString()
+      expiryDate: appointmentDate,
+      createdAt: new Date().toISOString().replace('T', ' ').slice(0, 19)
     }
     
     mockWaitlist.push(newWaitlist)
@@ -189,7 +209,8 @@ export const createWaitlist = (data) => {
  */
 export const getMyWaitlist = () => {
   if (USE_MOCK) {
-    return Promise.resolve(mockWaitlist)
+    // 返回数组的深拷贝，确保 Vue 能检测到变化
+    return Promise.resolve(JSON.parse(JSON.stringify(mockWaitlist)))
   }
   return request.get('/patient/waitlist')
 }
@@ -201,9 +222,10 @@ export const getMyWaitlist = () => {
  */
 export const cancelWaitlist = (waitlistId) => {
   if (USE_MOCK) {
-    const index = mockWaitlist.findIndex(w => w.id === waitlistId)
-    if (index !== -1) {
-      mockWaitlist.splice(index, 1)
+    const waitlist = mockWaitlist.find(w => w.id === waitlistId)
+    if (waitlist) {
+      // 更新状态为已取消，而不是删除记录
+      waitlist.status = 'cancelled'
     }
     return Promise.resolve(true)
   }

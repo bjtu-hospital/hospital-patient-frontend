@@ -7,73 +7,55 @@
         v-for="item in waitlist" 
         :key="item.id"
       >
-        <!-- 医院和科室信息 -->
+        <!-- 医生信息头部 -->
         <view class="card-header">
-          <text class="hospital-name">{{ item.hospitalName }}</text>
+          <view class="doctor-info">
+            <text class="doctor-name">{{ item.doctorName }} {{ item.doctorTitle }}</text>
+            <text class="department-info">{{ item.departmentName }} {{ item.hospitalName }}</text>
+          </view>
           <view class="status-badge" :class="getStatusClass(item.status)">
             <text class="status-text">{{ getStatusText(item.status) }}</text>
           </view>
         </view>
         
-        <!-- 医生和时间信息 -->
+        <!-- 候补详细信息 -->
         <view class="card-content">
-          <view class="info-row">
-            <view class="info-icon">
-              <uni-icons type="person" size="20" color="#64748b"></uni-icons>
-            </view>
-            <text class="info-text">{{ item.doctorName }} {{ item.doctorTitle }}</text>
+          <view class="info-item">
+            <text class="info-label">就诊人</text>
+            <text class="info-value">{{ item.patientName }}</text>
           </view>
-          
-          <view class="info-row">
-            <view class="info-icon">
-              <uni-icons type="calendar" size="20" color="#64748b"></uni-icons>
-            </view>
-            <text class="info-text">{{ item.appointmentDate }} {{ item.period }}</text>
+          <view class="info-item">
+            <text class="info-label">候补日期</text>
+            <text class="info-value">{{ item.appointmentDate }} {{ item.period }}</text>
           </view>
-          
-          <view class="info-row">
-            <view class="info-icon">
-              <uni-icons type="location" size="20" color="#64748b"></uni-icons>
-            </view>
-            <text class="info-text">{{ item.departmentName }}</text>
+          <view class="info-item">
+            <text class="info-label">门诊类型</text>
+            <text class="info-value">{{ item.appointmentType }} <text class="price">¥{{ item.price }}</text></text>
           </view>
-          
-          <view class="info-row">
-            <view class="info-icon">
-              <uni-icons type="person-filled" size="20" color="#64748b"></uni-icons>
-            </view>
-            <text class="info-text">就诊人：{{ item.patientName }}</text>
-          </view>
-        </view>
-        
-        <!-- 候补状态信息 -->
-        <view class="card-status">
-          <view v-if="item.status === 'waiting'" class="waiting-info">
-            <view class="position-badge">
-              <text class="position-text">排第 {{ item.position }} 位</text>
-            </view>
-            <text class="waiting-tip">有号源释放时将自动通知您</text>
-          </view>
-          
-          <view v-else-if="item.status === 'success'" class="success-info">
-            <text class="success-text">✅ 候补成功，已自动为您预约</text>
-            <button class="view-appointment-btn" @tap="viewAppointment(item)">
-              查看预约
-            </button>
-          </view>
-          
-          <view v-else-if="item.status === 'expired'" class="expired-info">
-            <text class="expired-text">候补已过期</text>
+          <view class="info-item">
+            <text class="info-label">提交时间</text>
+            <text class="info-value">{{ item.createdAt }}</text>
           </view>
         </view>
         
         <!-- 操作按钮 -->
-        <view class="card-actions" v-if="item.status === 'waiting'">
-          <button class="cancel-btn" @tap="handleCancel(item.id)">
+        <view class="card-actions">
+          <button class="detail-btn" @tap="viewDetail(item)">
+            查看详情
+          </button>
+          <button class="cancel-btn" @tap="handleCancel(item.id)" v-if="item.status === 'waiting'">
             取消候补
           </button>
         </view>
       </view>
+    </view>
+    
+    <!-- 温馨提示 -->
+    <view class="bottom-tip" v-if="waitlist.length > 0">
+      <view class="tip-icon">
+        <uni-icons type="info-filled" size="18" color="#ef4444"></uni-icons>
+      </view>
+      <text class="tip-text">温馨提示：候补成功的订单，请前往"我的预约"中查看或取消</text>
     </view>
     
     <!-- 空状态 -->
@@ -117,6 +99,8 @@ const loadWaitlist = async () => {
 
 // 取消候补
 const handleCancel = (waitlistId) => {
+  console.log('点击取消候补，ID:', waitlistId)
+  
   uni.showModal({
     title: '取消候补',
     content: '确定要取消候补吗？取消后需重新加入候补队列。',
@@ -133,11 +117,12 @@ const handleCancel = (waitlistId) => {
             icon: 'success'
           })
           
-          // 刷新列表
+          // 立即刷新列表
           loadWaitlist()
           
         } catch (error) {
           uni.hideLoading()
+          console.error('取消候补失败:', error)
           uni.showToast({
             title: error.message || '取消失败',
             icon: 'none'
@@ -148,10 +133,11 @@ const handleCancel = (waitlistId) => {
   })
 }
 
-// 查看预约（候补成功后）
-const viewAppointment = (item) => {
+// 查看详情
+const viewDetail = (item) => {
+  // 跳转到候补详情页面（候补成功页面）
   uni.navigateTo({
-    url: '/pages/profile/appointments'
+    url: `/pages/home/appointment/waitlist-success?waitlistId=${item.id}&position=${item.position || 0}&status=${item.status}`
   })
 }
 
@@ -167,7 +153,8 @@ const getStatusClass = (status) => {
   return {
     'status-waiting': status === 'waiting',
     'status-success': status === 'success',
-    'status-expired': status === 'expired'
+    'status-expired': status === 'expired',
+    'status-cancelled': status === 'cancelled'
   }
 }
 
@@ -214,17 +201,28 @@ onMounted(() => {
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24rpx;
   padding-bottom: 20rpx;
   border-bottom: 1rpx solid $color-slate-100;
 }
 
-.hospital-name {
+.doctor-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.doctor-name {
   font-size: 28rpx;
   font-weight: $font-semibold;
   color: $color-slate-900;
-  flex: 1;
+}
+
+.department-info {
+  font-size: 24rpx;
+  color: $color-slate-600;
 }
 
 .status-badge {
@@ -252,112 +250,64 @@ onMounted(() => {
   border: 1rpx solid $color-slate-300;
 }
 
+.status-badge.status-cancelled {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1rpx solid #fca5a5;
+}
+
 /* 卡片内容 */
 .card-content {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
   margin-bottom: 24rpx;
 }
 
-.info-row {
+.info-item {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12rpx;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid $color-slate-50;
 }
 
-.info-icon {
-  width: 32rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.info-item:last-child {
+  border-bottom: none;
 }
 
-.info-text {
+.info-label {
   font-size: 26rpx;
-  color: $color-slate-700;
-  flex: 1;
-}
-
-/* 候补状态信息 */
-.card-status {
-  background: $color-slate-50;
-  padding: 20rpx;
-  border-radius: $border-radius-base;
-  margin-bottom: 20rpx;
-}
-
-.waiting-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.position-badge {
-  padding: 12rpx 32rpx;
-  background: linear-gradient(135deg, $hospital-primary 0%, $hospital-primary-light 100%);
-  border-radius: 24rpx;
-}
-
-.position-text {
-  font-size: 28rpx;
-  font-weight: $font-semibold;
-  color: white;
-}
-
-.waiting-tip {
-  font-size: 22rpx;
   color: $color-slate-600;
 }
 
-.success-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16rpx;
-}
-
-.success-text {
+.info-value {
   font-size: 26rpx;
-  color: #10b981;
+  color: $color-slate-900;
   font-weight: $font-medium;
+  text-align: right;
 }
 
-.view-appointment-btn {
-  padding: 12rpx 32rpx;
-  background: white;
-  border: 1rpx solid #10b981;
-  border-radius: 20rpx;
-  color: #10b981;
-  font-size: 24rpx;
-  
-  &::after {
-    border: none;
-  }
+.price {
+  color: #dc2626;
+  font-weight: $font-semibold;
+  margin-left: 4rpx;
 }
 
-.expired-info {
-  text-align: center;
-}
-
-.expired-text {
-  font-size: 24rpx;
-  color: $color-slate-500;
-}
 
 /* 操作按钮 */
 .card-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 16rpx;
 }
 
-.cancel-btn {
-  padding: 16rpx 48rpx;
+.detail-btn {
+  flex: 1;
+  padding: 20rpx;
   background: white;
-  border: 1rpx solid $color-slate-300;
+  border: 1rpx solid $hospital-primary;
   border-radius: $border-radius-base;
-  color: $color-slate-700;
+  color: $hospital-primary;
   font-size: 26rpx;
   font-weight: $font-medium;
   transition: all 0.2s ease;
@@ -367,9 +317,51 @@ onMounted(() => {
   }
   
   &:active {
-    background: $color-slate-50;
-    border-color: $color-slate-400;
+    background: #f0fdff;
   }
+}
+
+.cancel-btn {
+  flex: 1;
+  padding: 20rpx;
+  background: linear-gradient(135deg, $hospital-primary 0%, $hospital-primary-light 100%);
+  border: none;
+  border-radius: $border-radius-base;
+  color: white;
+  font-size: 26rpx;
+  font-weight: $font-medium;
+  transition: all 0.2s ease;
+  
+  &::after {
+    border: none;
+  }
+  
+  &:active {
+    opacity: 0.9;
+  }
+}
+
+/* 底部提示 */
+.bottom-tip {
+  background: #fef2f2;
+  margin: 24rpx 32rpx;
+  padding: 20rpx 24rpx;
+  border-radius: $border-radius-base;
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  border: 1rpx solid #fecaca;
+}
+
+.tip-icon {
+  margin-top: 2rpx;
+}
+
+.tip-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #991b1b;
+  line-height: 1.5;
 }
 
 /* 空状态 */

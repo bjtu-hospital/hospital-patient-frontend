@@ -115,7 +115,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
- import { getDoctorSchedules, createWaitlist } from '@/api/appointment'  // ✨ 导入候补 API
+import { getDoctorSchedules } from '@/api/appointment'
 
 const appointmentStore = useAppointmentStore()
 const currentHospital = ref(null)
@@ -264,52 +264,13 @@ const selectSchedule = (schedule) => {
 }
 
 // 加入候补
-const joinWaitlist = async (schedule) => {
-  // 显示候补说明
-  uni.showModal({
-    title: '加入候补',
-    content: `号源已满，加入候补后，如有人取消预约将自动为您分配。\n\n候补规则：\n• 有效期到就诊日前1天\n• 按顺序自动分配\n• 候补不需支付\n\n是否确认加入？`,
-    confirmText: '确认加入',
-    cancelText: '取消',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          uni.showLoading({ title: '加入中...' })
-          
-          // 调用候补 API（需要就诊人信息）
-          const result = await createWaitlist({
-            scheduleId: schedule.id,
-            patientId: 'patient_001'  // 默认第一个就诊人（后续可优化为选择）
-          })
-          
-          uni.hideLoading()
-          
-          // 显示成功提示
-          uni.showModal({
-            title: '候补成功',
-            content: `您已加入候补队列\n\n当前排第 ${result.position} 位\n\n预约信息：\n${schedule.doctorName} - ${currentDepartment.value?.name}\n${schedule.date} ${schedule.period}\n\n有号源释放时将自动通知您`,
-            showCancel: true,
-            confirmText: '查看候补',
-            cancelText: '知道了',
-            success: (modalRes) => {
-              if (modalRes.confirm) {
-                // 跳转到候补列表
-                uni.navigateTo({
-                  url: '/pages/profile/waitlist'
-                })
-              }
-            }
-          })
-          
-        } catch (error) {
-          uni.hideLoading()
-          uni.showToast({
-            title: error.message || '加入候补失败',
-            icon: 'none'
-          })
-        }
-      }
-    }
+const joinWaitlist = (schedule) => {
+  // 保存选中的排班到 Store
+  appointmentStore.setSelectedSchedule(schedule)
+  
+  // 跳转到候补确认页面（类似预约流程）
+  uni.navigateTo({
+    url: '/pages/home/appointment/confirm-waitlist'
   })
 }
 
