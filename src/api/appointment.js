@@ -97,8 +97,23 @@ export const createAppointment = (data) => {
  */
 export const getMyAppointments = (params) => {
   if (USE_MOCK) {
-    // 根据状态过滤
-    let filtered = mockAppointments
+    // 🔧 FIXED: 从本地存储读取用户创建的预约 + 预定义的 Mock 数据合并
+    const storedAppointments = uni.getStorageSync('myAppointments') || []
+    
+    // 合并本地存储和 Mock 数据（本地存储优先）
+    let allAppointments = [...storedAppointments, ...mockAppointments]
+    
+    // 去重：如果同一个 ID 既在本地存储又在 Mock 数据中，只保留本地存储的
+    const appointmentMap = new Map()
+    allAppointments.forEach(a => {
+      if (!appointmentMap.has(a.id)) {
+        appointmentMap.set(a.id, a)
+      }
+    })
+    let filtered = Array.from(appointmentMap.values())
+    
+    // 按创建时间倒序排列（最新的在前）
+    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     
     if (params && params.status && params.status !== 'all') {
       filtered = filtered.filter(a => a.status === params.status)
@@ -185,7 +200,7 @@ export const createWaitlist = (data) => {
       appointmentDate: appointmentDate,
       appointmentTime: schedule.timeSlot || '上午 08:00-12:00',
       period: schedule.period || '上午',
-      appointmentType: schedule.type || '普通门诊',
+      appointmentType: schedule.appointmentType || '普通门诊',
       price: schedule.price || 50,
       position: existingCount + 1,
       status: 'waiting',

@@ -1,7 +1,12 @@
 <template>
   <view class="waitlist-container">
+    <!-- 加载中状态 -->
+    <view v-if="loading" class="loading-state">
+      <uni-load-more status="loading" content-text="加载中..."></uni-load-more>
+    </view>
+
     <!-- 候补列表 -->
-    <view class="waitlist-list">
+    <view v-else class="waitlist-list">
       <view 
         class="waitlist-card" 
         v-for="item in waitlist" 
@@ -51,7 +56,7 @@
     </view>
     
     <!-- 温馨提示 -->
-    <view class="bottom-tip" v-if="waitlist.length > 0">
+    <view v-if="!loading && waitlist.length > 0" class="bottom-tip">
       <view class="tip-icon">
         <uni-icons type="info-filled" size="18" color="#ef4444"></uni-icons>
       </view>
@@ -60,7 +65,7 @@
     
     <!-- 空状态 -->
     <EmptyState 
-      v-if="waitlist.length === 0"
+      v-if="!loading && waitlist.length === 0"
       icon="list"
       text="暂无候补记录"
     >
@@ -383,6 +388,14 @@ onMounted(() => {
     transform: translateY(-2rpx);
     box-shadow: 0 12rpx 35rpx rgba(0, 213, 217, 0.4);
   }
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
 }
 </style>
 

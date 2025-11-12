@@ -44,7 +44,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onShow } from 'vue'
 import { getMyAppointments, cancelAppointment as cancelAppointmentApi } from '@/api/appointment'
 
 const selectedStatus = ref('all')
@@ -193,6 +193,12 @@ const loadAppointments = async () => {
 
 onMounted(() => {
   console.log('我的预约页面加载')
+  loadAppointments()
+})
+
+// 🔧 FIXED: 添加 onShow 钩子，每次页面显示时都刷新数据（支付成功返回时会执行）
+onShow(() => {
+  console.log('我的预约页面显示，重新加载数据')
   loadAppointments()
 })
 </script>

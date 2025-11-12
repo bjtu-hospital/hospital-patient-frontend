@@ -135,6 +135,9 @@ const confirmWaitlist = async () => {
 
     uni.hideLoading()
 
+    // 清空预约流程数据
+    appointmentStore.clearAppointmentData()
+
     // 跳转到候补成功页面
     uni.redirectTo({
       url: `/pages/home/appointment/waitlist-success?waitlistId=${result.waitlistId}&position=${result.position}`

@@ -117,6 +117,10 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { useAppointmentStore } from '@/stores/appointment'
+
+// 🔧 获取 appointment store
+const appointmentStore = useAppointmentStore()
 
 // 预约数据
 const appointmentData = reactive({
@@ -205,6 +209,8 @@ const handlePay = () => {
       confirmText: '查看详情',
       success: () => {
         clearInterval(timer)
+        // 🔧 FIXED: 清空预约流程数据，防止返回时产生脏数据
+        appointmentStore?.clearAppointmentData?.()
         // 跳转到我的预约
         uni.navigateTo({
           url: '/pages/profile/appointments'
