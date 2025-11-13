@@ -90,8 +90,8 @@ const statusMap = {
 const statusText = computed(() => statusMap[props.appointment.status] || props.appointment.status)
 
 // 显示操作按钮
-const showCancel = computed(() => props.appointment.status === 'pending')
-const showReschedule = computed(() => props.appointment.status === 'pending')
+const showCancel = computed(() => props.appointment.status === 'pending' && props.appointment.canCancel !== false)
+const showReschedule = computed(() => props.appointment.status === 'pending' && props.appointment.canReschedule !== false)
 const showEvaluate = computed(() => props.appointment.status === 'completed')
 
 // 事件处理

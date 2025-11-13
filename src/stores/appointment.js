@@ -14,6 +14,10 @@ export const useAppointmentStore = defineStore('appointment', () => {
   
   // State - 预约列表
   const appointments = ref([])
+
+  // State - 改约流程
+  const rescheduleContext = ref(uni.getStorageSync('rescheduleContext') || null)
+  const rescheduleSelectedSchedule = ref(uni.getStorageSync('rescheduleSelectedSchedule') || null)
   
   // Actions
   
@@ -71,6 +75,48 @@ export const useAppointmentStore = defineStore('appointment', () => {
     uni.removeStorageSync('selectedDoctor')
     uni.removeStorageSync('selectedSchedule')
   }
+
+  /**
+   * 设置改约上下文
+   */
+  const setRescheduleContext = (context) => {
+    rescheduleContext.value = context
+    if (context) {
+      uni.setStorageSync('rescheduleContext', context)
+    } else {
+      uni.removeStorageSync('rescheduleContext')
+    }
+  }
+
+  /**
+   * 设置改约选择的排班
+   */
+  const setRescheduleSelectedSchedule = (schedule) => {
+    rescheduleSelectedSchedule.value = schedule
+    if (schedule) {
+      uni.setStorageSync('rescheduleSelectedSchedule', schedule)
+    } else {
+      uni.removeStorageSync('rescheduleSelectedSchedule')
+    }
+  }
+
+  /**
+   * 清空改约数据
+   */
+  const clearRescheduleData = () => {
+    rescheduleContext.value = null
+    rescheduleSelectedSchedule.value = null
+    uni.removeStorageSync('rescheduleContext')
+    uni.removeStorageSync('rescheduleSelectedSchedule')
+  }
+
+  /**
+   * 恢复改约数据
+   */
+  const restoreRescheduleData = () => {
+    rescheduleContext.value = uni.getStorageSync('rescheduleContext') || null
+    rescheduleSelectedSchedule.value = uni.getStorageSync('rescheduleSelectedSchedule') || null
+  }
   
   /**
    * 恢复预约流程数据
@@ -97,6 +143,8 @@ export const useAppointmentStore = defineStore('appointment', () => {
     selectedSchedule,
     selectedPatient,
     appointments,
+    rescheduleContext,
+    rescheduleSelectedSchedule,
     
     // Actions
     setSelectedHospital,
@@ -104,8 +152,12 @@ export const useAppointmentStore = defineStore('appointment', () => {
     setSelectedDoctor,
     setSelectedSchedule,
     setSelectedPatient,
+    setRescheduleContext,
+    setRescheduleSelectedSchedule,
     clearAppointmentData,
     restoreAppointmentData,
+    clearRescheduleData,
+    restoreRescheduleData,
     setAppointments
   }
 })

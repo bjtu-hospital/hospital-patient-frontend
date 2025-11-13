@@ -69,6 +69,18 @@
 			}
 		},
 		{
+			"path": "pages/home/reschedule/select-schedule",
+			"style": {
+				"navigationBarTitleText": "选择新的就诊时间"
+			}
+		},
+		{
+			"path": "pages/home/reschedule/confirm",
+			"style": {
+				"navigationBarTitleText": "确认改约"
+			}
+		},
+		{
 			"path": "pages/profile/index",
 			"style": {
 				"navigationBarTitleText": "个人中心"

@@ -44,11 +44,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onShow } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { getMyAppointments, cancelAppointment as cancelAppointmentApi } from '@/api/appointment'
+import { useAppointmentStore } from '@/stores/appointment'
 
 const selectedStatus = ref('all')
 const loading = ref(false)
+const appointmentStore = useAppointmentStore()
 
 // 状态标签
 const statusTabs = ref([
@@ -134,10 +137,41 @@ const cancelAppointment = async (appointment) => {
 
 // 改约
 const rescheduleAppointment = async (appointment) => {
-  uni.showModal({
-    title: '改约',
-    content: '改约功能开发中，请稍后再试。',
-    showCancel: false
+  if (!appointment || appointment.canReschedule === false) {
+    uni.showToast({
+      title: '当前预约不可改约',
+      icon: 'none'
+    })
+    return
+  }
+
+  if (!appointment.hospitalId || !appointment.departmentId) {
+    uni.showToast({
+      title: '缺少改约所需信息，请重新创建预约',
+      icon: 'none'
+    })
+    return
+  }
+
+  appointmentStore.setRescheduleContext({
+    appointmentId: appointment.id,
+    hospitalId: appointment.hospitalId,
+    hospitalName: appointment.hospitalName,
+    departmentId: appointment.departmentId,
+    departmentName: appointment.departmentName,
+    doctorName: appointment.doctorName,
+    doctorTitle: appointment.doctorTitle,
+    appointmentDate: appointment.appointmentDate,
+    appointmentTime: appointment.appointmentTime,
+    price: appointment.price,
+    patientId: appointment.patientId,
+    patientName: appointment.patientName,
+    scheduleId: appointment.scheduleId || null
+  })
+  appointmentStore.setRescheduleSelectedSchedule(null)
+
+  uni.navigateTo({
+    url: '/pages/home/reschedule/select-schedule'
   })
 }
 
@@ -170,6 +204,7 @@ const loadAppointments = async () => {
     })
     
     appointments.value = result.list || []
+    appointmentStore.setAppointments(appointments.value)
     
     // 更新状态标签计数
     statusTabs.value.forEach(tab => {

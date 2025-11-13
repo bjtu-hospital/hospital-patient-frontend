@@ -147,6 +147,30 @@ export const cancelAppointment = (appointmentId) => {
       appointment.canCancel = false
       appointment.canReschedule = false
     }
+
+    // 同步更新本地存储的预约记录
+    const storedAppointments = uni.getStorageSync('myAppointments') || []
+    const updatedAppointments = storedAppointments.map(item => {
+      if (item.id === appointmentId) {
+        return {
+          ...item,
+          status: 'cancelled',
+          canCancel: false,
+          canReschedule: false,
+          updatedAt: new Date().toISOString()
+        }
+      }
+      return item
+    })
+    if (storedAppointments.length !== updatedAppointments.length) {
+      uni.setStorageSync('myAppointments', updatedAppointments)
+    } else {
+      // 检查是否有状态发生变化
+      const hasChange = storedAppointments.some((item, index) => item !== updatedAppointments[index])
+      if (hasChange) {
+        uni.setStorageSync('myAppointments', updatedAppointments)
+      }
+    }
     return Promise.resolve(true)
   }
   return request.put(`/patient/appointments/${appointmentId}/cancel`)
@@ -160,7 +184,79 @@ export const cancelAppointment = (appointmentId) => {
  */
 export const rescheduleAppointment = (appointmentId, data) => {
   if (USE_MOCK) {
-    return Promise.resolve(true)
+    let updatedAppointment = null
+
+    // 更新本地存储中的预约记录
+    const storedAppointments = uni.getStorageSync('myAppointments') || []
+    const nextStored = storedAppointments.map(item => {
+      if (item.id === appointmentId) {
+        const merged = {
+          ...item,
+          ...data,
+          appointmentDate: data.appointmentDate || item.appointmentDate,
+          appointmentTime: data.appointmentTime || item.appointmentTime,
+          doctorName: data.doctorName || item.doctorName,
+          doctorTitle: data.doctorTitle ?? item.doctorTitle,
+          price: data.price ?? item.price,
+          hospitalId: data.hospitalId || item.hospitalId,
+          departmentId: data.departmentId || item.departmentId,
+          patientId: data.patientId || item.patientId,
+          scheduleId: data.scheduleId || item.scheduleId,
+          status: 'pending',
+          canCancel: true,
+          canReschedule: true,
+          updatedAt: new Date().toISOString()
+        }
+        updatedAppointment = merged
+        return merged
+      }
+      return item
+    })
+
+    if (updatedAppointment) {
+      uni.setStorageSync('myAppointments', nextStored)
+    }
+
+    // 更新默认的 Mock 预约列表
+    const mockItem = mockAppointments.find(a => a.id === appointmentId)
+    if (mockItem) {
+      mockItem.appointmentDate = data.appointmentDate || mockItem.appointmentDate
+      mockItem.appointmentTime = data.appointmentTime || mockItem.appointmentTime
+      mockItem.doctorName = data.doctorName || mockItem.doctorName
+      mockItem.doctorTitle = data.doctorTitle ?? mockItem.doctorTitle
+      mockItem.price = data.price ?? mockItem.price
+      mockItem.hospitalId = data.hospitalId || mockItem.hospitalId
+      mockItem.departmentId = data.departmentId || mockItem.departmentId
+      mockItem.patientId = data.patientId || mockItem.patientId
+      mockItem.scheduleId = data.scheduleId || mockItem.scheduleId
+      mockItem.status = 'pending'
+      mockItem.canCancel = true
+      mockItem.canReschedule = true
+      mockItem.updatedAt = new Date().toISOString()
+      updatedAppointment = updatedAppointment || { ...mockItem }
+    }
+
+    if (!updatedAppointment) {
+      // 如果本地存储和 Mock 数据都没有找到对应预约，构造一个基础返回结果
+      updatedAppointment = {
+        id: appointmentId,
+        appointmentDate: data.appointmentDate,
+        appointmentTime: data.appointmentTime,
+        doctorName: data.doctorName,
+        doctorTitle: data.doctorTitle,
+        price: data.price,
+        hospitalId: data.hospitalId,
+        departmentId: data.departmentId,
+        patientId: data.patientId,
+        scheduleId: data.scheduleId,
+        status: 'pending',
+        canCancel: true,
+        canReschedule: true,
+        updatedAt: new Date().toISOString()
+      }
+    }
+
+    return Promise.resolve(updatedAppointment)
   }
   return request.put(`/patient/appointments/${appointmentId}/reschedule`, data)
 }
