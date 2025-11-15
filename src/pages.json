@@ -51,6 +51,13 @@
 			}
 		},
 		{
+			"path": "pages/home/appointment/payment",
+			"style": {
+				"navigationBarTitleText": "支付",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/home/appointment/success",
 			"style": {
 				"navigationBarTitleText": "我的预约单"

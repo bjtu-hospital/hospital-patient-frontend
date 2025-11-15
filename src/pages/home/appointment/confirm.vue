@@ -211,8 +211,6 @@ const submitAppointment = async () => {
     
     const result = await createAppointment(appointmentData)
     
-    uni.hideLoading()
-    
     // 保存预约记录到本地（用于"我的预约"页面显示）
     const appointmentRecord = {
       id: result.id,
@@ -231,6 +229,7 @@ const submitAppointment = async () => {
       queueNumber: result.queueNumber,
       price: appointmentInfo.price,
       status: 'pending',
+      paymentStatus: 'pending',  // 新增：支付状态
       canCancel: true,
       canReschedule: true,
       createdAt: new Date().toISOString()
@@ -241,12 +240,17 @@ const submitAppointment = async () => {
     existingAppointments.unshift(appointmentRecord)
     uni.setStorageSync('myAppointments', existingAppointments)
     
+    // 保存为最后一个预约（用于 success 页面显示）
+    uni.setStorageSync('lastAppointment', appointmentRecord)
+    
+    uni.hideLoading()
+    
     // 清空预约流程数据
     appointmentStore.clearAppointmentData()
     
-    // 跳转到预约成功页面
+    // 跳转到预约成功页面（30分钟计时页面）
     uni.navigateTo({
-      url: `/pages/home/appointment/success?appointmentId=${result.id}`
+      url: '/pages/home/appointment/success'
     })
     
   } catch (error) {

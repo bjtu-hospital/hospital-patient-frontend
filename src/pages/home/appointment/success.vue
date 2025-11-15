@@ -118,9 +118,12 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
+import { usePaymentStore } from '@/stores/payment'
+import { createPaymentOrder } from '@/api/payment'
 
-// 🔧 获取 appointment store
+// 🔧 获取 stores
 const appointmentStore = useAppointmentStore()
+const paymentStore = usePaymentStore()
 
 // 预约数据
 const appointmentData = reactive({
@@ -193,31 +196,44 @@ const handleCancel = async () => {
 }
 
 // 立即支付
-const handlePay = () => {
+const handlePay = async () => {
+  if (appointmentData.price <= 0) {
+    uni.showToast({
+      title: '金额异常，无法支付',
+      icon: 'none'
+    })
+    return
+  }
+
   uni.showLoading({
-    title: '跳转支付...'
+    title: '准备支付...',
+    mask: true
   })
   
-  setTimeout(() => {
+  try {
+    // 创建支付订单
+    const paymentOrder = await createPaymentOrder({
+      appointmentId: appointmentData.orderNo,
+      amount: appointmentData.price,
+      paymentMethod: 'wechat'
+    })
+    
+    // 保存支付订单到 Store
+    paymentStore.createOrder(paymentOrder)
+    
     uni.hideLoading()
     
-    // 模拟支付成功
-    uni.showModal({
-      title: '支付成功',
-      content: '预约已完成，请按时就诊',
-      showCancel: false,
-      confirmText: '查看详情',
-      success: () => {
-        clearInterval(timer)
-        // 🔧 FIXED: 清空预约流程数据，防止返回时产生脏数据
-        appointmentStore?.clearAppointmentData?.()
-        // 跳转到我的预约
-        uni.navigateTo({
-          url: '/pages/profile/appointments'
-        })
-      }
+    // 跳转到支付页面
+    uni.navigateTo({
+      url: '/pages/home/appointment/payment'
     })
-  }, 1000)
+  } catch (error) {
+    uni.hideLoading()
+    uni.showToast({
+      title: error.message || '支付准备失败，请重试',
+      icon: 'none'
+    })
+  }
 }
 
 // 返回
