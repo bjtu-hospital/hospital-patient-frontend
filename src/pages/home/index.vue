@@ -64,7 +64,7 @@
           class="function-item" 
           hover-class="function-item-hover"
           :hover-stay-time="50"
-          @tap="navigateTo('/pages/profile/health')"
+          @tap="navigateTo('/pages/profile/health/index')"
         >
           <view class="function-icon blue-bg">
             <uni-icons type="heart" size="30" color="white"></uni-icons>

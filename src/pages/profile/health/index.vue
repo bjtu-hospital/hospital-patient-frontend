@@ -4,7 +4,12 @@
     <view class="health-overview">
       <view class="overview-header">
         <text class="header-title">健康概览</text>
-        <text class="header-date">最近更新：{{ lastUpdateDate }}</text>
+        <view class="header-actions">
+          <text class="header-date">最近更新：{{ lastUpdateDate }}</text>
+          <button class="edit-btn" @tap="editBasicInfo">
+            <uni-icons type="compose" size="18" color="#00BFCC"></uni-icons>
+          </button>
+        </view>
       </view>
       
       <view class="health-stats">
@@ -112,7 +117,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Activity, Heart, FileText, TestTube, Pill, Eye, Calendar, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-vue-next'
+import { mockHealthData } from './mock'
 
 const lastUpdateDate = ref('2024-10-28')
 const healthIndex = ref(85)
@@ -126,7 +131,6 @@ const healthCategories = ref([
     name: '基本信息',
     description: '身高体重、血型等基础信息',
     count: 5,
-    icon: FileText,
     iconType: 'paperplane-filled'
   },
   {
@@ -134,7 +138,6 @@ const healthCategories = ref([
     name: '体检报告',
     description: '年度体检、入学体检等',
     count: 3,
-    icon: TestTube,
     iconType: 'compose'
   },
   {
@@ -142,7 +145,6 @@ const healthCategories = ref([
     name: '用药记录',
     description: '处方记录、药物过敏史',
     count: 8,
-    icon: Pill,
     iconType: 'shop-filled'
   },
   {
@@ -150,7 +152,6 @@ const healthCategories = ref([
     name: '视力档案',
     description: '视力检查、配镜记录',
     count: 6,
-    icon: Eye,
     iconType: 'eye-filled'
   },
   {
@@ -158,7 +159,6 @@ const healthCategories = ref([
     name: '疫苗接种',
     description: '疫苗接种记录',
     count: 2,
-    icon: Activity,
     iconType: 'heart-filled'
   }
 ])
@@ -198,26 +198,28 @@ const healthReminders = ref([
     type: 'checkup',
     title: '年度体检提醒',
     description: '距离上次体检已过11个月，建议进行年度体检',
-    actionText: '立即预约',
-    icon: TestTube
+    actionText: '立即预约'
   },
   {
     id: 2,
     type: 'medication',
     title: '用药提醒',
     description: '您的感冒药今天需要服用',
-    actionText: '已服用',
-    icon: Pill
+    actionText: '已服用'
   }
 ])
 
+// 编辑基本信息
+const editBasicInfo = () => {
+  uni.navigateTo({
+    url: '/pages/profile/health/basic-info'
+  })
+}
+
 // 查看分类详情
 const viewCategory = (category) => {
-  uni.showModal({
-    title: category.name,
-    content: `${category.description}\n共${category.count}条记录`,
-    showCancel: false,
-    confirmText: '知道了'
+  uni.navigateTo({
+    url: `/pages/profile/health/detail?category=${category.key}`
   })
 }
 
@@ -233,11 +235,9 @@ const viewAllRecords = () => {
 
 // 查看记录详情
 const viewRecord = (record) => {
-  uni.showModal({
-    title: '就诊详情',
-    content: `就诊时间：${record.visitDate}\n科室：${record.department}\n医生：${record.doctorName}\n诊断：${record.diagnosis}`,
-    showCancel: false,
-    confirmText: '知道了'
+  uni.showToast({
+    title: '就诊记录详情功能开发中',
+    icon: 'none'
   })
 }
 
@@ -278,24 +278,35 @@ const handleReminder = (reminder) => {
 }
 
 onMounted(() => {
-  console.log('健康档案页面加载')
+  // 从本地存储加载基本信息
+  const basicInfo = uni.getStorageSync('basicHealthInfo')
+  if (basicInfo) {
+    lastUpdateDate.value = new Date(basicInfo.lastUpdated).toLocaleDateString('zh-CN')
+  }
 })
 </script>
 
 <style lang="scss" scoped>
+$hospital-primary: #00BFCC;
+$color-slate-50: #f8fafc;
+$color-slate-100: #f1f5f9;
+$color-slate-200: #e2e8f0;
+$color-slate-300: #cbd5e1;
+$color-slate-600: #475569;
+$color-slate-900: #0f172a;
+
 .health-container {
-  background: #f8fafc;
+  background: $color-slate-50;
   min-height: 100vh;
-  padding: 24rpx;
-  padding-bottom: 120rpx;
+  padding: 24rpx 0;
 }
 
-/* 健康概览 - 队友风格 */
+/* 健康概览 */
 .health-overview {
   background: white;
   border-radius: 12rpx;
   padding: 24rpx;
-  margin-bottom: 24rpx;
+  margin: 0 24rpx 24rpx;
   border: 1rpx solid #e2e8f0;
   box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
 }
@@ -313,9 +324,32 @@ onMounted(() => {
   color: #0f172a;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
 .header-date {
   font-size: 22rpx;
   color: #94a3b8;
+}
+
+.edit-btn {
+  width: 36rpx;
+  height: 36rpx;
+  background: rgba(0, 191, 204, 0.1);
+  border: none;
+  border-radius: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:active {
+    background: rgba(0, 191, 204, 0.2);
+    transform: scale(0.95);
+  }
 }
 
 .health-stats {
@@ -351,19 +385,19 @@ onMounted(() => {
   font-size: 32rpx;
   font-weight: 600;
   color: #0f172a;
+
+  &.good {
+    color: #16a34a;
+  }
+
+  &.warning {
+    color: #dc2626;
+  }
 }
 
-.stat-value.good {
-  color: #16a34a;
-}
-
-.stat-value.warning {
-  color: #dc2626;
-}
-
-/* 健康档案分类 - 队友风格 */
+/* 健康档案分类 */
 .health-categories {
-  margin-bottom: 24rpx;
+  margin: 0 24rpx 24rpx;
 }
 
 .category-card {
@@ -376,12 +410,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   transition: all 0.2s ease;
-}
 
-.category-card:active {
-  background: #f8fafc;
-  transform: translateY(-1rpx);
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+  &:active {
+    background: #f8fafc;
+    transform: translateY(-1rpx);
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+  }
 }
 
 .card-icon {
@@ -391,27 +425,24 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 20rpx;
-}
+  margin-right: 24rpx;
+  flex-shrink: 0;
 
-.card-icon.basic {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-}
-
-.card-icon.checkup {
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-}
-
-.card-icon.medication {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-}
-
-.card-icon.vision {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-}
-
-.card-icon.vaccination {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  &.basic {
+    background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  }
+  &.checkup {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  }
+  &.medication {
+    background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+  }
+  &.vision {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+  &.vaccination {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
 }
 
 .card-info {
@@ -423,7 +454,7 @@ onMounted(() => {
   font-weight: 600;
   color: #0f172a;
   display: block;
-  margin-bottom: 6rpx;
+  margin-bottom: 4rpx;
 }
 
 .card-desc {
@@ -435,28 +466,27 @@ onMounted(() => {
 
 .card-count {
   font-size: 20rpx;
-  color: #00BFCC;
+  color: #94a3b8;
+  display: block;
 }
 
 .card-arrow {
   margin-left: 16rpx;
+  flex-shrink: 0;
 }
 
-/* 最近就诊记录 - 队友风格 */
+/* 最近就诊 */
 .recent-records {
-  background: white;
-  border-radius: 12rpx;
-  padding: 24rpx;
-  margin-bottom: 24rpx;
-  border: 1rpx solid #e2e8f0;
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
+  margin: 0 24rpx 24rpx;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
+  padding: 0 0 12rpx;
+  border-bottom: 1rpx solid #e2e8f0;
 }
 
 .section-title {
@@ -467,29 +497,29 @@ onMounted(() => {
 
 .view-all {
   font-size: 22rpx;
-  color: #00BFCC;
+  color: $hospital-primary;
 }
 
 .records-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 12rpx;
 }
 
 .record-item {
-  background: #f8fafc;
-  border: 1rpx solid #f1f5f9;
-  border-radius: 8rpx;
-  padding: 20rpx;
+  background: white;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  border: 1rpx solid #e2e8f0;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   transition: all 0.2s ease;
-}
 
-.record-item:active {
-  background: #f0fdff;
-  border-color: #00BFCC;
+  &:active {
+    background: #f8fafc;
+    transform: translateY(-1rpx);
+  }
 }
 
 .record-info {
@@ -497,84 +527,101 @@ onMounted(() => {
 }
 
 .record-date {
-  font-size: 22rpx;
-  color: #00BFCC;
-  font-weight: 500;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #0f172a;
   display: block;
-  margin-bottom: 8rpx;
+  margin-bottom: 4rpx;
 }
 
-.record-dept,
+.record-dept {
+  font-size: 22rpx;
+  color: #64748b;
+  display: block;
+}
+
 .record-doctor {
-  font-size: 24rpx;
-  color: #475569;
-  margin-bottom: 4rpx;
+  font-size: 20rpx;
+  color: #94a3b8;
   display: block;
 }
 
 .record-diagnosis {
-  font-size: 22rpx;
-  color: #64748b;
+  font-size: 20rpx;
+  color: #94a3b8;
+  display: block;
+  margin-top: 4rpx;
 }
 
 .record-status {
   padding: 6rpx 12rpx;
-  border-radius: 12rpx;
+  border-radius: 6rpx;
   font-size: 20rpx;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &.completed {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  &.pending {
+    background: #fef3c7;
+    color: #92400e;
+  }
 }
 
-.record-status.completed {
-  background: #dcfce7;
-  color: #16a34a;
+.status-text {
+  display: block;
 }
 
-/* 健康提醒 - 队友风格 */
+/* 健康提醒 */
 .health-reminders {
-  background: white;
-  border-radius: 12rpx;
-  padding: 24rpx;
-  border: 1rpx solid #e2e8f0;
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
+  margin: 0 24rpx;
 }
 
 .reminder-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
-  margin-top: 20rpx;
+  gap: 12rpx;
 }
 
 .reminder-item {
-  background: #f8fafc;
-  border-radius: 8rpx;
-  padding: 20rpx;
+  background: white;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  border: 1rpx solid #e2e8f0;
   display: flex;
   align-items: center;
-  border: 1rpx solid #f1f5f9;
+  gap: 12rpx;
   transition: all 0.2s ease;
-}
 
-.reminder-item:active {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
+  &:active {
+    background: #f8fafc;
+    transform: translateY(-1rpx);
+  }
 }
 
 .reminder-icon {
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 12rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 8rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 16rpx;
-}
+  flex-shrink: 0;
 
-.reminder-icon.checkup {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-}
+  &.checkup {
+    background: #dbeafe;
+  }
 
-.reminder-icon.medication {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  &.medication {
+    background: #fce7f3;
+  }
+
+  &.appointment {
+    background: #e0e7ff;
+  }
 }
 
 .reminder-content {
@@ -583,27 +630,25 @@ onMounted(() => {
 
 .reminder-title {
   font-size: 24rpx;
-  font-weight: 500;
+  font-weight: 600;
   color: #0f172a;
   display: block;
-  margin-bottom: 6rpx;
+  margin-bottom: 4rpx;
 }
 
 .reminder-desc {
   font-size: 22rpx;
   color: #64748b;
-  line-height: 1.3;
+  display: block;
 }
 
 .reminder-action {
-  background: #00BFCC;
-  padding: 12rpx 20rpx;
-  border-radius: 16rpx;
+  flex-shrink: 0;
 }
 
 .action-text {
   font-size: 22rpx;
-  color: white;
-  font-weight: 500;
+  color: $hospital-primary;
+  font-weight: 600;
 }
 </style>

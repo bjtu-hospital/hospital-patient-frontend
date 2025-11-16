@@ -121,7 +121,7 @@ const goToWaitlist = () => {
 
 const goToHealth = () => {
   uni.navigateTo({
-    url: '/pages/profile/health'
+    url: '/pages/profile/health/index'
   })
 }
 
