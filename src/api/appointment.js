@@ -270,7 +270,7 @@ export const rescheduleAppointment = (appointmentId, data) => {
  */
 export const createWaitlist = (data) => {
   if (USE_MOCK) {
-    // 计算当前候补位置
+    // 计算当前候补位置(只计算等待中的)
     const existingCount = mockWaitlist.filter(
       w => w.scheduleId === data.scheduleId && w.status === 'waiting'
     ).length
@@ -281,26 +281,35 @@ export const createWaitlist = (data) => {
     // 从就诊人数据中查找就诊人信息
     const patient = mockPatients.find(p => p.id === data.patientId) || {}
     
+    // ✅ 从排班数据中获取医院ID和科室ID,然后查找完整信息
+    const hospital = mockHospitals.find(h => h.id === schedule.hospitalId) || {}
+    const department = mockDepartments.find(d => d.id === schedule.departmentId) || {}
+    
     const today = new Date()
     const appointmentDate = schedule.date || today.toISOString().split('T')[0]
+    
+    // ✅ 计算候补截止时间(就诊前一日18:00)
+    const expiryDateTime = new Date(appointmentDate)
+    expiryDateTime.setDate(expiryDateTime.getDate() - 1)
+    const expiryDateStr = expiryDateTime.toISOString().split('T')[0] + ' 18:00:00'
     
     const newWaitlist = {
       id: 'waitlist_' + Date.now(),
       scheduleId: data.scheduleId,
       patientId: data.patientId,
       patientName: patient.name || '未知',
-      hospitalName: schedule.hospitalName || '北京交通大学校医院（本部）',
-      departmentName: schedule.departmentName || '未知科室',
+      hospitalName: hospital.name || '北京交通大学校医院(本部)',  // ✅ 从医院数据获取
+      departmentName: department.name || '未知科室',  // ✅ 从科室数据获取
       doctorName: schedule.doctorName || '未知医生',
       doctorTitle: schedule.doctorTitle || '',
       appointmentDate: appointmentDate,
-      appointmentTime: schedule.timeSlot || '上午 08:00-12:00',
+      appointmentTime: `${schedule.period} ${schedule.startTime}-${schedule.endTime}`,
       period: schedule.period || '上午',
       appointmentType: schedule.appointmentType || '普通门诊',
       price: schedule.price || 50,
       position: existingCount + 1,
       status: 'waiting',
-      expiryDate: appointmentDate,
+      expiryDate: expiryDateStr,  // ✅ 修正为就诊前一日18:00
       createdAt: new Date().toISOString().replace('T', ' ').slice(0, 19)
     }
     

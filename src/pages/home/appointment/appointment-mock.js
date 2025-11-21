@@ -495,9 +495,10 @@ const generateMockSchedules = () => {
   for (let index = 0; index < dates.length; index++) {
     const date = dates[index]
     // ========== 心内科 (dept_005) - 每天都有 ==========
-    // 普通门诊 - 上午（今天和明天约满，用来测试候补功能）
+    // 普通门诊 - 上午(今天和明天约满,用来测试候补功能)
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_001',
       doctorName: '刘靖',
       doctorTitle: '主治医师',
@@ -509,13 +510,14 @@ const generateMockSchedules = () => {
       appointmentType: '普通',
       type: 'normal',
       price: 50,
-      availableSlots: index < 2 ? 0 : 20,  // ✨ 今天明天约满，用于测试候补
+      availableSlots: index < 2 ? 0 : 20,  // ✨ 今天明天约满,用于测试候补
       totalSlots: 25
     })
     
     // 普通门诊 - 下午
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_002',
       doctorName: '王鲁雁',
       doctorTitle: '副主任医师',
@@ -535,6 +537,8 @@ const generateMockSchedules = () => {
     if (index % 2 === 0) {  // 隔天有专家门诊
       schedules.push({
         id: `schedule_${scheduleId++}`,
+        hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
+        hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
         doctorId: 'doctor_008',
         doctorName: '李主任',
         doctorTitle: '主任医师',
@@ -555,6 +559,7 @@ const generateMockSchedules = () => {
     if (index % 3 === 1) {
       schedules.push({
         id: `schedule_${scheduleId++}`,
+        hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
         doctorId: 'doctor_009',
         doctorName: '王教授',
         doctorTitle: '主任医师',
@@ -575,6 +580,7 @@ const generateMockSchedules = () => {
     // 普通门诊
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_004',
       doctorName: '孙宁玲',
       doctorTitle: '主任医师',
@@ -592,6 +598,7 @@ const generateMockSchedules = () => {
     
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_005',
       doctorName: '王鸿懿',
       doctorTitle: '副主任医师',
@@ -610,6 +617,7 @@ const generateMockSchedules = () => {
     // 专病门诊 - 每天都有
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_010',
       doctorName: '高血压出院随访门诊',
       doctorTitle: '专病门诊',
@@ -628,6 +636,7 @@ const generateMockSchedules = () => {
     // ========== 呼吸睡眠医学科 (dept_002) - 每天都有 ==========
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_003',
       doctorName: '喜杨',
       doctorTitle: '主治医师',
@@ -645,6 +654,7 @@ const generateMockSchedules = () => {
     
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_006',
       doctorName: '陈源源',
       doctorTitle: '主治医师',
@@ -664,6 +674,7 @@ const generateMockSchedules = () => {
     if (index % 2 === 0) {
       schedules.push({
         id: `schedule_${scheduleId++}`,
+        hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
         doctorId: 'doctor_007',
         doctorName: '张医生',
         doctorTitle: '主治医师',
@@ -683,6 +694,7 @@ const generateMockSchedules = () => {
     // ========== 内分泌科 (dept_009) - 每天都有 ==========
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_012',
       doctorName: '赵医生',
       doctorTitle: '副主任医师',
@@ -702,6 +714,7 @@ const generateMockSchedules = () => {
     // 国际医疗门诊 - 专家
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_013',
       doctorName: '李国际',
       doctorTitle: '主任医师',
@@ -719,6 +732,7 @@ const generateMockSchedules = () => {
     
     schedules.push({
       id: `schedule_${scheduleId++}`,
+      hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_014',
       doctorName: '王国际',
       doctorTitle: '副主任医师',
@@ -738,6 +752,7 @@ const generateMockSchedules = () => {
     if (index % 2 === 1) {
       schedules.push({
         id: `schedule_${scheduleId++}`,
+        hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
         doctorId: 'doctor_015',
         doctorName: '妊娠相关高血压专业门诊',
         doctorTitle: '专病门诊',

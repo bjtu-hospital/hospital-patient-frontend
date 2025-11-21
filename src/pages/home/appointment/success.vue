@@ -205,35 +205,25 @@ const handlePay = async () => {
     return
   }
 
-  uni.showLoading({
-    title: '准备支付...',
-    mask: true
-  })
+  // ✅ 直接跳转到支付页面，不需要重复创建支付订单
+  // 因为在confirm.vue中已经创建过支付订单并保存到Store了
   
-  try {
-    // 创建支付订单
-    const paymentOrder = await createPaymentOrder({
-      appointmentId: appointmentData.orderNo,
-      amount: appointmentData.price,
-      paymentMethod: 'wechat'
-    })
-    
-    // 保存支付订单到 Store
-    paymentStore.createOrder(paymentOrder)
-    
-    uni.hideLoading()
-    
-    // 跳转到支付页面
-    uni.navigateTo({
-      url: '/pages/home/appointment/payment'
-    })
-  } catch (error) {
-    uni.hideLoading()
+  // 检查Store中是否已有支付订单
+  if (!paymentStore.currentOrder) {
     uni.showToast({
-      title: error.message || '支付准备失败，请重试',
+      title: '支付订单异常，请重新预约',
       icon: 'none'
     })
+    return
   }
+
+  // 暂停倒计时（跳转到支付页面后，支付页面有自己的倒计时）
+  clearInterval(timer)
+  
+  // 直接跳转到支付页面
+  uni.navigateTo({
+    url: '/pages/home/appointment/payment'
+  })
 }
 
 // 返回

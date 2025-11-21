@@ -92,10 +92,13 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
+import { usePaymentStore } from '@/stores/payment'  // ✅ 导入支付Store
 import { getPatients } from '@/api/user'  // ✨ 导入 API
 import { createAppointment } from '@/api/appointment'  // ✨ 导入预约API
+import { createPaymentOrder } from '@/api/payment'  // ✅ 导入支付API
 
 const appointmentStore = useAppointmentStore()
+const paymentStore = usePaymentStore()  // ✅ 使用支付Store
 const selectedPatient = ref(null)
 const loading = ref(false)
 
@@ -199,19 +202,21 @@ const submitAppointment = async () => {
   })
   
   try {
-    // ✨ 调用 API 创建预约（自动判断使用 Mock 还是真实接口）
+    // ✅ 调用 API 创建预约(自动判断使用 Mock 还是真实接口)
     const schedule = appointmentStore.selectedSchedule
     
     const appointmentData = {
       scheduleId: schedule?.id,
-      slotId: schedule?.id + '_slot_001',  // 时段ID（实际应该从选择的时段获取）
+      hospitalId: appointmentStore.selectedHospital?.id,  // ✅ 添加 hospitalId
+      departmentId: appointmentStore.selectedDepartment?.id,  // ✅ 添加 departmentId
+      slotId: schedule?.id + '_slot_001',  // 时段ID(实际应该从选择的时段获取)
       patientId: selectedPatient.value.id,
       symptoms: ''  // 可选的症状描述
     }
     
     const result = await createAppointment(appointmentData)
     
-    // 保存预约记录到本地（用于"我的预约"页面显示）
+    // 保存预约记录到本地(用于"我的预约"页面显示)
     const appointmentRecord = {
       id: result.id,
       orderNo: result.orderNo,
@@ -229,7 +234,7 @@ const submitAppointment = async () => {
       queueNumber: result.queueNumber,
       price: appointmentInfo.price,
       status: 'pending',
-      paymentStatus: 'pending',  // 新增：支付状态
+      paymentStatus: 'pending',  // 支付状态:待支付
       canCancel: true,
       canReschedule: true,
       createdAt: new Date().toISOString()
@@ -240,15 +245,27 @@ const submitAppointment = async () => {
     existingAppointments.unshift(appointmentRecord)
     uni.setStorageSync('myAppointments', existingAppointments)
     
-    // 保存为最后一个预约（用于 success 页面显示）
+    // 保存为最后一个预约(用于 success 页面显示)
     uni.setStorageSync('lastAppointment', appointmentRecord)
+    
+    // ✅ 创建支付订单并保存到 Store(但不立即跳转支付页面)
+    const paymentOrder = await createPaymentOrder({
+      appointmentId: result.id,
+      orderNo: result.orderNo,
+      amount: appointmentInfo.price,
+      description: `${appointmentInfo.hospital}-${appointmentInfo.department}`,
+      patientName: selectedPatient.value.name
+    })
+    
+    // ✅ 保存支付订单到 Store
+    paymentStore.createOrder(paymentOrder)
     
     uni.hideLoading()
     
     // 清空预约流程数据
     appointmentStore.clearAppointmentData()
     
-    // 跳转到预约成功页面（30分钟计时页面）
+    // ✅ 先跳转到预约成功页面,在那里用户可以选择立即支付
     uni.navigateTo({
       url: '/pages/home/appointment/success'
     })
@@ -256,7 +273,7 @@ const submitAppointment = async () => {
   } catch (error) {
     uni.hideLoading()
     uni.showToast({
-      title: error.message || '预约失败，请重试',
+      title: error.message || '预约失败,请重试',
       icon: 'none'
     })
   }
