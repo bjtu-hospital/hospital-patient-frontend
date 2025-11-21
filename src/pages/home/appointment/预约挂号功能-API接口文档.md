@@ -375,10 +375,31 @@
 ```json
 {
   "scheduleId": "schedule_002",
+  "hospitalId": "hospital_001",
+  "departmentId": "dept_005",
   "slotId": "schedule_002_slot_001",
-  "reason": "临时有事"
+  "appointmentDate": "2025-11-22",
+  "appointmentTime": "下午 14:00-17:00",
+  "doctorName": "王医生",
+  "doctorTitle": "主治医师",
+  "price": 50,
+  "patientId": "patient_001",
+  "patientName": "张三"
 }
 ```
+
+**参数说明**:
+- `scheduleId` (string, required): 新排班ID
+- `hospitalId` (string, required): 医院ID
+- `departmentId` (string, required): 科室ID
+- `slotId` (string, optional): 具体时段ID
+- `appointmentDate` (string, required): 新就诊日期
+- `appointmentTime` (string, required): 新就诊时间段
+- `doctorName` (string, required): 医生姓名
+- `doctorTitle` (string, optional): 医生职称
+- `price` (number, required): 挂号费
+- `patientId` (string, required): 就诊人ID
+- `patientName` (string, required): 就诊人姓名
 
 **响应数据**:
 ```json
@@ -387,11 +408,22 @@
   "message": {
     "id": "appointment_001",
     "appointmentDate": "2025-11-22",
-    "appointmentTime": "下午 14:00-14:30",
-    "queueNumber": 10
+    "appointmentTime": "下午 14:00-17:00",
+    "queueNumber": 10,
+    "doctorName": "王医生",
+    "price": 50
   }
 }
 ```
+
+**改约规则**:
+1. 只能改约同科室的排班
+2. 不能改约到已约满的时段
+3. 不能改约到当前时段(必须选择不同时间)
+4. 改约成功后原预约自动取消
+5. 如果已支付，改约不需要重新支付(价格相同时)
+6. 如果新时段价格高于原价格，需要补交差价
+7. 如果新时段价格低于原价格，多余金额原路返回
 
 ---
 

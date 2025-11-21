@@ -270,7 +270,7 @@ const joinWaitlist = (schedule) => {
   
   // 跳转到候补确认页面（类似预约流程）
   uni.navigateTo({
-    url: '/pages/home/appointment/confirm-waitlist'
+    url: '/pages/home/waitlist/confirm-waitlist'
   })
 }
 
