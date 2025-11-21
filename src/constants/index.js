@@ -20,7 +20,7 @@ export const APPOINTMENT_STATUS_TEXT = {
 export const APPOINTMENT_TYPE = {
   NORMAL: 'normal',          // 普通门诊
   EXPERT: 'expert',          // 专家门诊
-  SPECIAL: 'special'         // 专病门诊
+  INTERNATIONAL: 'international'  // 国疗门诊
 }
 
 // ==================== 支付相关常量 ====================

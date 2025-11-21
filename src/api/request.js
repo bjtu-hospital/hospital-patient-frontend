@@ -23,23 +23,30 @@ const requestInterceptor = (config) => {
 
 /**
  * 响应拦截器
+ * 统一处理后端返回格式: { code: 0, message: {} } 或 { code: 非0, message: "错误信息" }
  */
 const responseInterceptor = (response) => {
   const { statusCode, data } = response
   
   // 请求成功
   if (statusCode === 200) {
-    // 统一处理后端返回的数据结构
-    // 假设后端返回格式为 { code: 0, data: {}, message: '' }
-    if (data.code === 0 || data.success) {
-      return data.data || data
+    // 成功时 code=0, 数据在 message 字段
+    if (data.code === 0) {
+      // 返回 message 字段的数据
+      return data.message
     } else {
-      // 业务错误
-      const errorMsg = data.message || '操作失败'
+      // ❌ 业务错误: code 非0, message 是错误描述字符串
+      const errorMsg = typeof data.message === 'string' 
+        ? data.message 
+        : '操作失败'
+      
+      // 统一Toast提示错误
       uni.showToast({
         title: errorMsg,
-        icon: 'none'
+        icon: 'none',
+        duration: 2000
       })
+      
       return Promise.reject(new Error(errorMsg))
     }
   }
@@ -48,13 +55,23 @@ const responseInterceptor = (response) => {
   if (statusCode === 401) {
     uni.removeStorageSync('token')
     uni.removeStorageSync('userInfo')
-    uni.reLaunch({
-      url: '/pages/auth/login'
+    
+    uni.showToast({
+      title: '登录已过期，请重新登录',
+      icon: 'none'
     })
+    
+    // 延迟跳转，让用户看到提示
+    setTimeout(() => {
+      uni.reLaunch({
+        url: '/pages/auth/login'
+      })
+    }, 1500)
+    
     return Promise.reject(new Error('未授权，请重新登录'))
   }
   
-  // 其他HTTP错误
+  // 其他HTTP错误 - 统一处理并提示
   const errorMessages = {
     400: '请求参数错误',
     403: '没有权限访问',
@@ -65,7 +82,15 @@ const responseInterceptor = (response) => {
     504: '网关超时'
   }
   
-  const errorMsg = errorMessages[statusCode] || data.message || '请求失败'
+  const errorMsg = errorMessages[statusCode] || '请求失败'
+  
+  // 统一Toast提示
+  uni.showToast({
+    title: errorMsg,
+    icon: 'none',
+    duration: 2000
+  })
+  
   return Promise.reject(new Error(errorMsg))
 }
 
@@ -104,13 +129,18 @@ const request = (options) => {
             errorMsg = '网络超时，请检查网络连接'
           } else if (error.errMsg.includes('abort')) {
             errorMsg = '请求已取消'
+          } else if (error.errMsg.includes('fail')) {
+            errorMsg = '网络连接失败，请检查网络'
           }
         }
         
+        // 统一Toast提示网络错误
         uni.showToast({
           title: errorMsg,
-          icon: 'none'
+          icon: 'none',
+          duration: 2000
         })
+        
         reject(new Error(errorMsg))
       }
     })

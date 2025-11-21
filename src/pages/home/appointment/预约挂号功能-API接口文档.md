@@ -37,8 +37,15 @@
 ```json
 {
   "code": 0,           // 0表示成功,其他表示错误
-  "message": "操作成功",
-  "data": {}           // 具体数据
+  "message": {}        // 具体数据对象
+}
+```
+
+**错误响应格式**:
+```json
+{
+  "code": 1001,        // 非0表示错误
+  "message": "错误描述字符串"
 }
 ```
 
@@ -47,8 +54,7 @@
 ```json
 {
   "code": 0,
-  "message": "success",
-  "data": {
+  "message": {
     "total": 100,      // 总记录数
     "page": 1,         // 当前页
     "pageSize": 10,    // 每页条数
@@ -64,7 +70,7 @@
 ### 2.1 正常预约流程
 
 ```
-用户选择医院
+用户选择医院院区
     ↓
 用户选择科室
     ↓
@@ -115,8 +121,7 @@
 ```json
 {
   "code": 0,
-  "message": "success",
-  "data": [
+  "message": [
     {
       "id": "hospital_001",
       "name": "北京交通大学校医院(本部)",
@@ -147,8 +152,7 @@
 ```json
 {
   "code": 0,
-  "message": "success",
-  "data": [
+  "message": [
     {
       "id": "dept_001",
       "hospitalId": "hospital_001",
@@ -189,43 +193,43 @@
 - `hospitalId` (string, optional): 医院ID
 - `departmentId` (string, required): 科室ID
 - `date` (string, optional): 日期(格式: YYYY-MM-DD), 不传则返回未来7天
-- `type` (string, optional): 门诊类型 (`normal`/`expert`/`special`)
+- `type` (string, optional): 门诊类型 (`normal`/`expert`/`international`)
 
 **响应数据**:
 ```json
 {
   "code": 0,
-  "message": "success",
-  "data": [
-    {
-      "id": "schedule_001",
-      "hospitalId": "hospital_001",
-      "departmentId": "dept_005",
-      "doctorId": "doctor_001",
-      "doctorName": "刘靖",
-      "doctorTitle": "主治医师",
-      "date": "2025-11-21",
-      "period": "上午",
-      "startTime": "08:00",
-      "endTime": "12:00",
-      "appointmentType": "普通",
-      "type": "normal",
-      "price": 50,
-      "availableSlots": 20,
-      "totalSlots": 25
-    }
-  ]
+  "message": {
+    "schedules": [
+      {
+        "schedule_id": 5667,
+        "doctor_id": 6,
+        "doctor_name": "高炜",
+        "clinic_id": 56,
+        "clinic_name": "心血管科门诊",
+        "clinic_type": 0,
+        "date": "2025-11-18",
+        "week_day": 2,
+        "time_section": "上午",
+        "slot_type": "专家",
+        "total_slots": 15,
+        "remaining_slots": 15,
+        "status": "正常",
+        "price": 100.0
+      }
+    ]
+  }
 }
 ```
 
 **字段说明**:
-- `type`: 门诊类型
-  - `normal` - 普通门诊
-  - `expert` - 专家/特需门诊
-  - `special` - 专病门诊
-- `period`: 时段 (`上午`/`下午`/`晚上`)
-- `availableSlots`: 可预约数量, **0表示已约满,需要候补**
-- `totalSlots`: 总号源数
+- `clinic_type`: 门诊类型
+  - `0` - 普通门诊
+  - `1` - 国疗门诊
+  - `2` - 特需门诊
+- `time_section`: 时段 (`上午`/`下午`/`晚上`)
+- `remaining_slots`: 可预约数量, **0表示已约满,需要候补**
+- `total_slots`: 总号源数
 
 ---
 
@@ -261,8 +265,7 @@
 ```json
 {
   "code": 0,
-  "message": "预约成功",
-  "data": {
+  "message": {
     "id": "appointment_001",
     "orderNo": "202411210001",
     "queueNumber": 15,
@@ -302,8 +305,7 @@
 ```json
 {
   "code": 0,
-  "message": "success",
-  "data": {
+  "message": {
     "total": 25,
     "page": 1,
     "pageSize": 10,
@@ -348,8 +350,7 @@
 ```json
 {
   "code": 0,
-  "message": "取消成功",
-  "data": {
+  "message": {
     "success": true,
     "refundAmount": 50
   }
@@ -383,8 +384,7 @@
 ```json
 {
   "code": 0,
-  "message": "改约成功",
-  "data": {
+  "message": {
     "id": "appointment_001",
     "appointmentDate": "2025-11-22",
     "appointmentTime": "下午 14:00-14:30",
@@ -415,8 +415,7 @@
 ```json
 {
   "code": 0,
-  "message": "加入候补成功",
-  "data": {
+  "message": {
     "waitlistId": "waitlist_001",
     "position": 3,
     "expiryDate": "2025-11-20 18:00:00"
@@ -445,8 +444,7 @@
 ```json
 {
   "code": 0,
-  "message": "success",
-  "data": [
+  "message": [
     {
       "id": "waitlist_001",
       "scheduleId": "schedule_001",
@@ -490,8 +488,7 @@
 ```json
 {
   "code": 0,
-  "message": "取消成功",
-  "data": {
+  "message": {
     "success": true
   }
 }
@@ -535,8 +532,7 @@
 ```json
 {
   "code": 0,
-  "message": "success",
-  "data": {
+  "message": {
     "orderId": "pay_order_001",
     "amount": 50,
     "status": "pending",
@@ -590,8 +586,7 @@
 ```json
 {
   "code": 0,
-  "message": "支付成功",
-  "data": {
+  "message": {
     "orderId": "pay_order_001",
     "transactionId": "wx_txn_001",
     "paidAt": "2025-11-21 10:35:00",
@@ -613,8 +608,7 @@
 ```json
 {
   "code": 0,
-  "message": "success",
-  "data": {
+  "message": {
     "orderId": "pay_order_001",
     "status": "paid",
     "amount": 50,
@@ -683,7 +677,7 @@ interface Schedule {
   startTime: string       // 开始时间(HH:mm)
   endTime: string         // 结束时间(HH:mm)
   appointmentType: string // 门诊类型文本
-  type: string            // 门诊类型代码(normal/expert/special)
+  type: string            // 门诊类型代码(normal/expert/international)
   price: number           // 挂号费(元)
   availableSlots: number  // 可预约数
   totalSlots: number      // 总号源数
@@ -778,11 +772,7 @@ interface Waitlist {
 ```json
 {
   "code": 1001,
-  "message": "号源已满,您可以选择加入候补队列",
-  "data": {
-    "waitlistAvailable": true,
-    "currentPosition": 5
-  }
+  "message": "号源已满,您可以选择加入候补队列"
 }
 ```
 
@@ -835,9 +825,6 @@ interface Waitlist {
    - 符合取消时间规则的预约,取消后 **全额退款**
    - 退款原路返回,**1-3个工作日** 到账
 
-3. **发票**:
-   - 支持开具电子发票
-   - 可在"我的-发票管理"中申请
 
 ---
 
@@ -859,5 +846,4 @@ interface Waitlist {
 
 ---
 
-**文档维护**: 开发团队  
-**技术支持**: dev@bjtu-hospital.com
+*

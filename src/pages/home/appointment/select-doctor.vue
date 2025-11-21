@@ -161,8 +161,8 @@ const availableDates = ref(generateAvailableDates())
 // 门诊类型
 const appointmentTypes = ref([
   { key: 'normal', name: '普通门诊' },
-  { key: 'expert', name: '专家/特需/国际部门诊' },
-  { key: 'special', name: '专病门诊' }
+  { key: 'expert', name: '专家/特需' },
+  { key: 'international', name: '国疗门诊' }
 ])
 
 // 医生排班数据（从 API 获取）

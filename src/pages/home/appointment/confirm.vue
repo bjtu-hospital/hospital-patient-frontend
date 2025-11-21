@@ -48,7 +48,7 @@
       </view>
       
       <view class="info-row">
-        <text class="info-label">专病名称</text>
+        <text class="info-label">国疗名称</text>
         <text class="info-value">{{ appointmentInfo.department }}</text>
       </view>
       

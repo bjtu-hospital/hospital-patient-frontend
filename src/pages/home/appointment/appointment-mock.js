@@ -614,20 +614,20 @@ const generateMockSchedules = () => {
       totalSlots: 25
     })
     
-    // 专病门诊 - 每天都有
+    // 国疗门诊 - 每天都有
     schedules.push({
       id: `schedule_${scheduleId++}`,
       hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
       doctorId: 'doctor_010',
       doctorName: '高血压出院随访门诊',
-      doctorTitle: '专病门诊',
+      doctorTitle: '国疗门诊',
       departmentId: 'dept_006',
       date: date,
       period: '上午',
       startTime: '08:00',
       endTime: '12:00',
-      appointmentType: '专病',
-      type: 'special',
+      appointmentType: '国疗',
+      type: 'international',
       price: 50,
       availableSlots: 15,
       totalSlots: 20
@@ -755,14 +755,14 @@ const generateMockSchedules = () => {
         hospitalId: 'hospital_001',  // ✅ 添加 hospitalId
         doctorId: 'doctor_015',
         doctorName: '妊娠相关高血压专业门诊',
-        doctorTitle: '专病门诊',
+        doctorTitle: '国疗门诊',
         departmentId: 'dept_201',
         date: date,
         period: '下午',
         startTime: '14:00',
         endTime: '17:00',
-        appointmentType: '专病',
-        type: 'special',
+        appointmentType: '国疗',
+        type: 'international',
         price: 60,
         availableSlots: 10,
         totalSlots: 15

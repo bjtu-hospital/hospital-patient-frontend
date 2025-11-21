@@ -46,7 +46,7 @@
       </view>
       
       <view class="detail-row">
-        <text class="detail-label">专病名称</text>
+        <text class="detail-label">国疗名称</text>
         <text class="detail-value">{{ appointmentData.departmentName }}</text>
       </view>
       
