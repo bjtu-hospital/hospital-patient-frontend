@@ -142,7 +142,7 @@ const handleCancel = (waitlistId) => {
 const viewDetail = (item) => {
   // 跳转到候补详情页面（候补成功页面）
   uni.navigateTo({
-    url: `/pages/home/appointment/waitlist-success?waitlistId=${item.id}&position=${item.position || 0}&status=${item.status}`
+    url: `/pages/home/waitlist/waitlist-success?waitlistId=${item.id}&position=${item.position || 0}&status=${item.status}`
   })
 }
 

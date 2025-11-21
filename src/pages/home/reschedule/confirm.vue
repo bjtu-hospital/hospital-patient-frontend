@@ -127,6 +127,7 @@ const submitReschedule = async () => {
       scheduleId: newSchedule.value.id,
       hospitalId: context.value.hospitalId,
       departmentId: context.value.departmentId,
+      slotId: newSchedule.value.id + '_slot_001',  // 添加 slotId
       appointmentDate: newSchedule.value.date,
       appointmentTime: `${newSchedule.value.period} ${newSchedule.value.startTime}-${newSchedule.value.endTime}`,
       doctorName: newSchedule.value.doctorName,

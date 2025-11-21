@@ -5,9 +5,9 @@ import request from './request'
 import {
     mockHospitals,
     mockDepartments,
-    mockSchedules,
-    mockWaitlist
+    mockSchedules
 } from '@/pages/home/appointment/appointment-mock'
+import { mockWaitlist } from '@/pages/home/waitlist/waitlist-mock'
 import { mockAppointments, mockPatients } from '@/pages/profile/user-mock'
 
 // 是否使用 Mock 数据
