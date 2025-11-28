@@ -23,36 +23,6 @@
 
         <!-- 表单区域 -->
         <view class="form-section">
-          <!-- 学号输入 -->
-          <view class="input-group">
-            <view class="input-label">学号 *</view>
-            <view class="input-wrapper">
-              <text class="input-icon">🎓</text>
-              <input 
-                class="input-field" 
-                type="text" 
-                placeholder="请输入学号"
-                v-model="formData.studentId"
-                placeholder-class="input-placeholder"
-              />
-            </view>
-          </view>
-
-          <!-- 姓名输入 -->
-          <view class="input-group">
-            <view class="input-label">真实姓名 *</view>
-            <view class="input-wrapper">
-              <uni-icons type="person" size="18" color="#00D5D9" class="input-icon"></uni-icons>
-              <input 
-                class="input-field" 
-                type="text" 
-                placeholder="请输入真实姓名"
-                v-model="formData.realName"
-                placeholder-class="input-placeholder"
-              />
-            </view>
-          </view>
-
           <!-- 手机号输入 -->
           <view class="input-group">
             <view class="input-label">手机号 *</view>
@@ -62,22 +32,23 @@
                 class="input-field" 
                 type="number" 
                 placeholder="请输入手机号"
-                v-model="formData.phone"
+                v-model="formData.phonenumber"
                 placeholder-class="input-placeholder"
+                maxlength="11"
               />
             </view>
           </view>
 
-          <!-- 身份证号输入 -->
+          <!-- 姓名输入 -->
           <view class="input-group">
-            <view class="input-label">身份证号 *</view>
+            <view class="input-label">姓名 *</view>
             <view class="input-wrapper">
-              <uni-icons type="contact" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+              <uni-icons type="person" size="18" color="#00D5D9" class="input-icon"></uni-icons>
               <input 
                 class="input-field" 
                 type="text" 
-                placeholder="请输入身份证号"
-                v-model="formData.idCard"
+                placeholder="请输入您的姓名"
+                v-model="formData.name"
                 placeholder-class="input-placeholder"
               />
             </view>
@@ -176,6 +147,10 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { register } from '@/api/auth'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
 
 // 响应式数据
 const isLoading = ref(false)
@@ -185,10 +160,8 @@ const agreedToTerms = ref(false)
 const errorMessage = ref('')
 
 const formData = reactive({
-  studentId: '',
-  realName: '',
-  phone: '',
-  idCard: '',
+  phonenumber: '',
+  name: '',
   password: '',
   confirmPassword: ''
 })
@@ -212,58 +185,21 @@ const validateForm = () => {
   // 清除之前的错误信息
   errorMessage.value = ''
   
-  // 学号验证
-  if (!formData.studentId.trim()) {
-    errorMessage.value = '请输入学号'
-    return false
-  }
-  
-  if (!/^\d{8}$/.test(formData.studentId)) {
-    errorMessage.value = '学号格式不正确，应为8位数字'
-    return false
-  }
-  
-  // 姓名验证
-  if (!formData.realName.trim()) {
-    errorMessage.value = '请输入真实姓名'
-    return false
-  }
-  
-  if (formData.realName.length < 2) {
-    errorMessage.value = '姓名至少2个字符'
-    return false
-  }
-  
-  // 手机号验证
-  if (!formData.phone.trim()) {
+  // 手机号验证（宽松模式）
+  if (!formData.phonenumber.trim()) {
     errorMessage.value = '请输入手机号'
     return false
   }
   
-  if (!/^1[3-9]\d{9}$/.test(formData.phone)) {
-    errorMessage.value = '手机号格式不正确'
+  // 姓名验证
+  if (!formData.name.trim()) {
+    errorMessage.value = '请输入姓名'
     return false
   }
   
-  // 身份证号验证
-  if (!formData.idCard.trim()) {
-    errorMessage.value = '请输入身份证号'
-    return false
-  }
-  
-  if (!/^[1-9]\d{5}(18|19|20)\d{2}((0[1-9])|(1[0-2]))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$/.test(formData.idCard)) {
-    errorMessage.value = '身份证号格式不正确'
-    return false
-  }
-  
-  // 密码验证
+  // 密码验证（宽松模式）
   if (!formData.password.trim()) {
     errorMessage.value = '请设置密码'
-    return false
-  }
-  
-  if (formData.password.length < 6) {
-    errorMessage.value = '密码至少6位'
     return false
   }
   
@@ -294,23 +230,47 @@ const handleRegister = async () => {
   }
 
   isLoading.value = true
+  errorMessage.value = ''
   
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // 调用注册接口
+    const token = await register({
+      phonenumber: formData.phonenumber,
+      password: formData.password,
+      name: formData.name
+    })
+    
+    // 保存token
+    uni.setStorageSync('token', token)
+    
+    // 立即获取用户角色信息
+    try {
+      const userInfo = await userStore.checkAuth()
+      console.log('用户角色:', userInfo.role)
+    } catch (error) {
+      console.warn('获取用户信息失败，但不影响注册:', error)
+    }
     
     uni.showToast({
       title: '注册成功',
-      icon: 'success'
+      icon: 'success',
+      duration: 1500
     })
     
-    // 注册成功后跳转到登录页
+    // 跳转到首页
     setTimeout(() => {
-      uni.navigateBack()
+      uni.reLaunch({
+        url: '/pages/home/index'
+      })
     }, 1500)
     
   } catch (error) {
-    errorMessage.value = '注册失败，请稍后重试'
+    // 错误处理（400错误如手机号重复已在拦截器处理，这里处理其他情况）
+    if (error.code === 400) {
+      errorMessage.value = error.message || '注册失败，请检查输入信息'
+    } else {
+      errorMessage.value = error.message || '注册失败，请稍后重试'
+    }
   } finally {
     isLoading.value = false
   }

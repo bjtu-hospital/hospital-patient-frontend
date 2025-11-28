@@ -25,14 +25,14 @@
         <view class="form-section">
           <!-- 用户名输入 -->
           <view class="input-group">
-            <view class="input-label">学号/手机号</view>
+            <view class="input-label">手机号</view>
             <view class="input-wrapper">
-              <uni-icons type="person" size="20" color="#00D5D9" class="input-icon"></uni-icons>
+              <uni-icons type="phone" size="20" color="#00D5D9" class="input-icon"></uni-icons>
               <input 
                 class="input-field" 
                 type="text" 
-                placeholder="请输入学号或手机号"
-                v-model="formData.identifier"
+                placeholder="请输入手机号"
+                v-model="formData.phonenumber"
                 placeholder-class="input-placeholder"
               />
             </view>
@@ -99,6 +99,10 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { login } from '@/api/auth'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
 
 // 响应式数据
 const isLoading = ref(false)
@@ -106,7 +110,7 @@ const showPassword = ref(false)
 const errorMessage = ref('')
 
 const formData = reactive({
-  identifier: '',
+  phonenumber: '',
   password: ''
 })
 
@@ -120,9 +124,9 @@ const handleLogin = async () => {
   // 清除之前的错误信息
   errorMessage.value = ''
   
-  // 表单验证
-  if (!formData.identifier.trim()) {
-    errorMessage.value = '请输入学号或手机号'
+  // 表单验证（宽松模式，适配数据库已有数据）
+  if (!formData.phonenumber.trim()) {
+    errorMessage.value = '请输入手机号'
     return
   }
   
@@ -131,53 +135,56 @@ const handleLogin = async () => {
     return
   }
 
-  if (formData.password.length < 6) {
-    errorMessage.value = '密码至少6位'
-    return
-  }
-
   isLoading.value = true
   
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // 调用登录接口
+    const token = await login({
+      phonenumber: formData.phonenumber,
+      password: formData.password
+    })
     
-    // 演示账号验证（实际项目中应该调用API）
-    const testAccounts = [
-      { identifier: 'admin', password: '123456', name: '管理员' },
-      { identifier: '23301087', password: '123456', name: '张三' },
-      { identifier: '13800138000', password: '123456', name: '李四' }
-    ]
+    // 保存token
+    uni.setStorageSync('token', token)
     
-    const validAccount = testAccounts.find(account => 
-      account.identifier === formData.identifier && 
-      account.password === formData.password
-    )
-    
-    if (validAccount) {
-      // 保存用户信息到本地存储
-      uni.setStorageSync('userInfo', {
-        name: validAccount.name,
-        identifier: formData.identifier
-      })
-      
-      uni.showToast({
-        title: '登录成功',
-        icon: 'success'
-      })
-      
-      // 登录成功后跳转到首页
-      setTimeout(() => {
-        uni.reLaunch({
-          url: '/pages/home/index'
-        })
-      }, 1500)
-    } else {
-      errorMessage.value = '学号/手机号或密码错误'
+    // 立即获取用户角色信息
+    try {
+      const userInfo = await userStore.checkAuth()
+      console.log('用户角色:', userInfo.role)
+    } catch (error) {
+      console.warn('获取用户信息失败，但不影响登录:', error)
     }
     
+    uni.showToast({
+      title: '登录成功',
+      icon: 'success',
+      duration: 1500
+    })
+    
+    // 跳转到首页
+    setTimeout(() => {
+      uni.reLaunch({
+        url: '/pages/home/index'
+      })
+    }, 1500)
+    
   } catch (error) {
-    errorMessage.value = '登录失败，请稍后重试'
+    // 错误处理
+    if (error.code === 403) {
+      // 账号封禁 - 显示详细信息
+      uni.showModal({
+        title: '账号已封禁',
+        content: error.message || '您的账号已被封禁，请联系管理员',
+        showCancel: false,
+        confirmText: '知道了'
+      })
+    } else if (error.code === 401) {
+      errorMessage.value = '手机号或密码错误'
+    } else if (error.code === 400) {
+      errorMessage.value = error.message || '登录失败，请检查输入信息'
+    } else {
+      errorMessage.value = error.message || '登录失败，请稍后重试'
+    }
   } finally {
     isLoading.value = false
   }

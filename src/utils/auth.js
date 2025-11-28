@@ -2,6 +2,8 @@
  * 认证工具函数
  */
 
+import request from '@/api/request'
+
 /**
  * 检查是否已登录
  * @returns {Boolean}
@@ -74,3 +76,28 @@ export const redirectToLogin = () => {
   })
 }
 
+/**
+ * 验证登录态
+ * 调用后端 /auth/me 接口验证 token 是否有效
+ * @returns {Promise<Object>} 返回用户角色信息 { role: 'user'|'admin' }
+ */
+export const checkAuth = async () => {
+  try {
+    const token = getToken()
+    if (!token) {
+      throw new Error('未登录')
+    }
+    
+    // 调用后端验证接口
+    const result = await request.get('/auth/me')
+    
+    // 保存用户信息
+    setUserInfo(result)
+    
+    return result
+  } catch (error) {
+    // 验证失败，清理本地数据
+    clearAuth()
+    throw error
+  }
+}
