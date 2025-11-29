@@ -4,9 +4,9 @@
     <view class="user-header">
       <view class="user-info">
         <view class="user-avatar">
-          <text class="avatar-text">张</text>
+          <text class="avatar-text">{{ nameFirstChar }}</text>
         </view>
-        <text class="user-greeting">张三，您好</text>
+        <text class="user-greeting">{{ greeting }}</text>
       </view>
       <view class="account-settings" @tap="goToSettings">
         <text class="settings-text">账号设置</text>
@@ -92,12 +92,34 @@
 </template>
 
 <script setup>
-import { reactive, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useUserStore } from '@/stores/user'
+import { getUserInfo } from '@/api/user'
 
-// 用户信息
-const userInfo = reactive({
-  name: '张三',
-  studentId: '23301087'
+// 使用 Pinia Store
+const userStore = useUserStore()
+
+// 用户信息（从后端获取）
+const userInfo = ref({
+  realName: '',
+  phone: '',
+  studentId: '',
+  idCard: ''
+})
+
+// 是否加载中
+const loading = ref(false)
+
+// 计算用户名首字（用于头像）
+const nameFirstChar = computed(() => {
+  const name = userInfo.value.realName || userStore.userName || '用'
+  return name.charAt(0)
+})
+
+// 计算问候语
+const greeting = computed(() => {
+  const name = userInfo.value.realName || userStore.userName || '您'
+  return `${name}，您好`
 })
 
 // 页面跳转函数
@@ -156,27 +178,45 @@ const goToSettings = () => {
   })
 }
 
+/**
+ * 加载用户信息
+ */
+const loadUserInfo = async () => {
+  try {
+    loading.value = true
+    const result = await getUserInfo()
+    console.log('📱 获取用户信息成功:', result)
+    userInfo.value = result
+  } catch (error) {
+    console.error('❌ 获取用户信息失败:', error)
+    uni.showToast({
+      title: error.message || '获取用户信息失败',
+      icon: 'none'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * 退出登录
+ */
 const logout = () => {
   uni.showModal({
     title: '退出登录',
     content: '确定要退出登录吗？',
     success: (res) => {
       if (res.confirm) {
-        uni.clearStorageSync()
-          uni.reLaunch({
-            url: '/pages/auth/login'
-          })
+        // 使用 Store 的 logout 方法
+        userStore.logout()
       }
     }
   })
 }
 
 onMounted(() => {
-  // 获取登录用户信息
-  const savedUserInfo = uni.getStorageSync('userInfo')
-  if (savedUserInfo) {
-    Object.assign(userInfo, savedUserInfo)
-  }
+  // 页面加载时获取用户信息
+  loadUserInfo()
 })
 </script>
 

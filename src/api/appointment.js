@@ -11,42 +11,134 @@ import { mockWaitlist } from '@/pages/home/waitlist/waitlist-mock'
 import { mockAppointments, mockPatients } from '@/pages/profile/user-mock'
 
 // 是否使用 Mock 数据
-const USE_MOCK = true  // ← 开发阶段使用 Mock 数据
+const USE_MOCK = false  // ← 已对接后端真实接口
 
 // ==================== 医院相关 ====================
 
 /**
- * 获取医院列表
- * @returns {Promise} 返回医院列表
- * Response: { code: 0, message: "success", data: [...] }
+ * 获取医院列表（院区列表）
+ * @param {String} areaId - 可选，指定院区ID
+ * @returns {Promise} 返回院区列表
+ * Response: { code: 0, message: { areas: [...] } }
  */
-export const getHospitals = () => {
+export const getHospitals = (areaId) => {
   if (USE_MOCK) {
     return Promise.resolve(mockHospitals)
   }
-  return request.get('/patient/hospitals')
+  const params = areaId ? { area_id: areaId } : {}
+  return request.get('/patient/hospitals', params).then(response => {
+    // 后端返回 { areas: [...] }，提取并映射字段
+    const areas = response.areas || []
+    return areas.map(area => ({
+      id: area.area_id,                    // area_id → id
+      name: area.name,                      // name 保持
+      level: '三甲',                        // 后端暂无该字段，给默认值
+      type: '综合医院',                     // 后端暂无该字段，给默认值
+      address: area.destination,            // destination → address
+      image: area.image_data               // image_data → image (base64)
+        ? `data:${area.image_type || 'image/jpeg'};base64,${area.image_data}`
+        : '/static/hospital-default.png',  // 默认图片
+      distance: 0,                          // 后端暂无距离计算
+      isOpen: true,                         // 默认营业
+      departmentCount: 0,                   // 后端暂无
+      doctorCount: 0,                       // 后端暂无
+      availableSlots: 0,                    // 后端暂无
+      latitude: area.latitude,              // 保留原始数据
+      longitude: area.longitude             // 保留原始数据
+    }))
+  })
 }
 
 /**
- * 获取科室列表
- * @param {String} hospitalId - 医院ID
- * @returns {Promise} 返回科室列表
- * Response: { code: 0, message: "success", data: [...] }
+ * 获取大科室列表
+ * @returns {Promise} 返回大科室列表
+ * Response: { code: 0, message: { departments: [...] } }
  */
-export const getDepartments = (hospitalId) => {
+export const getMajorDepartments = () => {
+  if (USE_MOCK) {
+    // Mock 没有大科室概念，返回空数组
+    return Promise.resolve([])
+  }
+  return request.get('/patient/major-departments').then(response => {
+    // 后端返回 { departments: [...] }
+    return response.departments || []
+  })
+}
+
+/**
+ * 获取科室列表（小科室列表）
+ * @param {String} hospitalId - 医院ID（可选，用于前端过滤）
+ * @param {String} majorDeptId - 大科室ID（可选）
+ * @returns {Promise} 返回小科室列表
+ * Response: { code: 0, message: { total, page, page_size, departments: [...] } }
+ */
+export const getDepartments = (hospitalId, majorDeptId) => {
   if (USE_MOCK) {
     // 根据医院ID过滤科室
     const filtered = mockDepartments.filter(dept => dept.hospitalId === hospitalId)
     return Promise.resolve(filtered)
   }
-  return request.get(`/patient/hospitals/${hospitalId}/departments`)
+  const params = {}
+  if (majorDeptId) params.major_dept_id = majorDeptId
+  // 获取所有小科室，前端按需过滤
+  return request.get('/patient/minor-departments', params).then(response => {
+    // 后端返回 { total, page, page_size, departments }
+    // 前端需要的是数组，所以返回 departments
+    return response.departments || []
+  })
+}
+
+/**
+ * 获取门诊列表
+ * @param {Object} params - 查询参数 { dept_id, area_id, page, page_size }
+ * @returns {Promise} 返回门诊列表
+ * Response: { code: 0, message: { total, page, page_size, clinics: [...] } }
+ */
+export const getClinics = (params = {}) => {
+  if (USE_MOCK) {
+    // Mock 没有门诊概念，返回空数组
+    return Promise.resolve([])
+  }
+  const apiParams = {
+    page: params.page || 1,
+    page_size: params.page_size || 50
+  }
+  if (params.dept_id) apiParams.dept_id = params.dept_id
+  if (params.area_id) apiParams.area_id = params.area_id
+  
+  return request.get('/patient/clinics', apiParams).then(response => {
+    return response.clinics || []
+  })
+}
+
+/**
+ * 获取医生列表
+ * @param {Object} params - 查询参数 { dept_id, name, page, page_size }
+ * @returns {Promise} 返回医生列表
+ * Response: { code: 0, message: { total, page, page_size, doctors: [...] } }
+ */
+export const getDoctors = (params = {}) => {
+  if (USE_MOCK) {
+    // Mock 没有单独的医生列表，返回空数组
+    return Promise.resolve([])
+  }
+  const apiParams = {
+    page: params.page || 1,
+    page_size: params.page_size || 50
+  }
+  if (params.dept_id) apiParams.dept_id = params.dept_id
+  if (params.name) apiParams.name = params.name
+  
+  return request.get('/patient/doctors', apiParams).then(response => {
+    return response.doctors || []
+  })
 }
 
 /**
  * 获取医生排班列表
  * @param {Object} params - 查询参数 { hospitalId, departmentId, date }
  * @returns {Promise} 返回排班列表
- * Response: { code: 0, message: "success", data: [...] }
+ * Response: { code: 0, message: [...] }
  */
 export const getDoctorSchedules = (params) => {
   if (USE_MOCK) {
@@ -63,14 +155,23 @@ export const getDoctorSchedules = (params) => {
     
     return Promise.resolve(filtered)
   }
-  return request.get('/patient/schedules', params)
+  // 后端接口使用不同的参数名
+  const apiParams = {}
+  if (params.hospitalId) apiParams.hospitalId = params.hospitalId
+  if (params.departmentId) apiParams.departmentId = params.departmentId
+  if (params.date) apiParams.date = params.date
+  
+  return request.get('/patient/hospitals/schedules', apiParams).then(response => {
+    // 后端可能返回 { schedules: [...] } 或直接返回数组
+    return response.schedules || response || []
+  })
 }
 
 /**
  * 创建预约
- * @param {Object} data - 预约信息
+ * @param {Object} data - 预约信息 { scheduleId, hospitalId, departmentId, patientId, symptoms }
  * @returns {Promise} 返回预约结果
- * Response: { code: 0, message: "success", data: {...} }
+ * Response: { code: 0, message: { id, orderNo, queueNumber, needPay, payAmount, ... } }
  */
 export const createAppointment = (data) => {
   if (USE_MOCK) {
@@ -86,16 +187,24 @@ export const createAppointment = (data) => {
     }
     return Promise.resolve(result)
   }
-  return request.post('/patient/appointments', data)
+  // 后端需要的参数格式
+  const apiData = {
+    scheduleId: data.scheduleId,
+    hospitalId: data.hospitalId,
+    departmentId: data.departmentId,
+    patientId: data.patientId,
+    symptoms: data.symptoms || ''
+  }
+  return request.post('/patient/appointments', apiData)
 }
 
 /**
  * 获取我的预约列表
  * @param {Object} params - 查询参数 { status, page, pageSize }
  * @returns {Promise} 返回预约列表
- * Response: { code: 0, message: "success", data: { total, list } }
+ * Response: { code: 0, message: { total, page, pageSize, list } }
  */
-export const getMyAppointments = (params) => {
+export const getMyAppointments = (params = {}) => {
   if (USE_MOCK) {
     // 🔧 FIXED: 从本地存储读取用户创建的预约 + 预定义的 Mock 数据合并
     const storedAppointments = uni.getStorageSync('myAppointments') || []
@@ -130,13 +239,19 @@ export const getMyAppointments = (params) => {
       list: filtered.slice(start, end)
     })
   }
-  return request.get('/patient/appointments', params)
+  // 后端接口参数
+  const apiParams = {
+    status: params.status || 'all',
+    page: params.page || 1,
+    pageSize: params.pageSize || 10
+  }
+  return request.get('/patient/appointments', apiParams)
 }
 
 /**
  * 取消预约
  * @param {String} appointmentId - 预约ID
- * @returns {Promise} 是否成功
+ * @returns {Promise} 返回取消结果 { success, refundAmount }
  */
 export const cancelAppointment = (appointmentId) => {
   if (USE_MOCK) {
@@ -171,7 +286,7 @@ export const cancelAppointment = (appointmentId) => {
         uni.setStorageSync('myAppointments', updatedAppointments)
       }
     }
-    return Promise.resolve(true)
+    return Promise.resolve({ success: true, refundAmount: 0 })
   }
   return request.put(`/patient/appointments/${appointmentId}/cancel`)
 }

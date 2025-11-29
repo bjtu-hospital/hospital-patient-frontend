@@ -71,49 +71,84 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
-import { getDepartments } from '@/api/appointment'  // ✨ 直接使用 API
+import { getDepartments, getMajorDepartments } from '@/api/appointment'
 
 const appointmentStore = useAppointmentStore()
 const currentHospital = ref(null)
-const selectedCategory = ref('internal')
+const selectedCategory = ref(null)  // 改为null，等加载后选第一个
 const searchKeyword = ref('')
 const loading = ref(false)
 
-// 大科室分类
-const categories = ref([
-  { key: 'internal', name: '内科' },
-  { key: 'surgical', name: '外科' },
-  { key: 'gynecology', name: '妇产科' },
-  { key: 'pediatrics', name: '儿科' },
-  { key: 'ent', name: '五官科' },
-  { key: 'tcm', name: '中医科' },
-  { key: 'dermatology', name: '皮科' },
-  { key: 'other', name: '其他科' },
-  { key: 'preop', name: '术前管理中心' },
-  { key: 'international', name: '国际医疗部' }
-])
+// 大科室分类（从后端获取）
+const categories = ref([])
 
-// 科室数据（从 API 获取）
+// 小科室数据（从后端获取）
 const departments = ref([])
 
-// 加载科室数据
-const loadDepartments = async () => {
-  if (!currentHospital.value?.id) {
-    console.warn('没有选择医院')
-    return
+// 加载大科室列表
+const loadMajorDepartments = async () => {
+  try {
+    const data = await getMajorDepartments()
+    console.log('🏥 大科室列表:', data)
+    
+    // 映射大科室数据
+    categories.value = data.map(dept => ({
+      key: dept.major_dept_id,      // 使用后端的ID
+      name: dept.name,               // 科室名称
+      description: dept.description  // 描述
+    }))
+    
+    // 默认选中第一个大科室
+    if (categories.value.length > 0 && !selectedCategory.value) {
+      selectedCategory.value = categories.value[0].key
+    }
+  } catch (error) {
+    console.error('❌ 获取大科室列表失败:', error)
+    // 使用默认分类作为fallback
+    categories.value = [
+      { key: 'internal', name: '内科' },
+      { key: 'surgical', name: '外科' },
+      { key: 'gynecology', name: '妇产科' },
+      { key: 'pediatrics', name: '儿科' },
+      { key: 'ent', name: '五官科' },
+      { key: 'tcm', name: '中医科' },
+      { key: 'dermatology', name: '皮科' },
+      { key: 'other', name: '其他科' }
+    ]
+    if (categories.value.length > 0) {
+      selectedCategory.value = categories.value[0].key
+    }
   }
-  
+}
+
+// 加载小科室数据
+const loadDepartments = async (majorDeptId = null) => {
   try {
     loading.value = true
-    // ✨ 调用 API，自动判断使用 Mock 还是真实接口
-    const data = await getDepartments(currentHospital.value.id)
-    departments.value = data
+    
+    // 🔑 调用后端接口，传入大科室ID过滤
+    const data = await getDepartments(currentHospital.value?.id, majorDeptId)
+    console.log('🏥 小科室列表:', data)
+    
+    // 映射小科室数据
+    departments.value = data.map(dept => ({
+      id: dept.minor_dept_id,           // 小科室ID
+      name: dept.name,                   // 科室名称
+      category: dept.major_dept_id,      // 所属大科室ID
+      majorDeptName: dept.major_dept_name, // 大科室名称
+      description: dept.description,     // 描述
+      priceRange: dept.price_range || '¥15-50',
+      todaySlots: 0,                     // 后端暂无
+      tomorrowSlots: 0                   // 后端暂无
+    }))
+    
   } catch (error) {
-    console.error('获取科室列表失败:', error)
+    console.error('❌ 获取小科室列表失败:', error)
     uni.showToast({
       title: '加载失败，请重试',
       icon: 'none'
     })
+    departments.value = []
   } finally {
     loading.value = false
   }
@@ -121,8 +156,12 @@ const loadDepartments = async () => {
 
 // 过滤后的科室列表
 const filteredDepartments = computed(() => {
+  if (!selectedCategory.value) return []
+  
+  // 按当前选中的大科室过滤
   let filtered = departments.value.filter(dept => dept.category === selectedCategory.value)
   
+  // 搜索关键词过滤
   if (searchKeyword.value.trim()) {
     const keyword = searchKeyword.value.trim().toLowerCase()
     filtered = filtered.filter(dept => 
@@ -133,9 +172,11 @@ const filteredDepartments = computed(() => {
   return filtered
 })
 
-// 选择分类
+// 选择分类（大科室）
 const selectCategory = (categoryKey) => {
   selectedCategory.value = categoryKey
+  // 🔑 切换大科室时，重新加载该大科室下的小科室
+  loadDepartments(categoryKey)
 }
 
 // 搜索处理
@@ -169,12 +210,28 @@ const selectDepartment = (dept) => {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 从 Store 获取选中的医院信息
   currentHospital.value = appointmentStore.selectedHospital
   
-  // 加载科室列表
-  loadDepartments()
+  if (!currentHospital.value) {
+    uni.showToast({
+      title: '请先选择院区',
+      icon: 'none'
+    })
+    setTimeout(() => {
+      uni.navigateBack()
+    }, 1500)
+    return
+  }
+  
+  // 1. 先加载大科室列表
+  await loadMajorDepartments()
+  
+  // 2. 加载第一个大科室的小科室
+  if (selectedCategory.value) {
+    await loadDepartments(selectedCategory.value)
+  }
 })
 </script>
 

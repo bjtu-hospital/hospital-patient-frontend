@@ -31,11 +31,27 @@ export const useUserStore = defineStore('user', () => {
       // 调用 /auth/me 获取用户角色信息
       const userRoleInfo = await authApi.getCurrentUser()
       
-      // 保存用户信息
+      // 保存用户基本信息（角色）
       userInfo.value = userRoleInfo
       setUserInfo(userRoleInfo)
       
-      return userRoleInfo
+      // 🆕 尝试获取完整用户信息（不阻断登录流程）
+      try {
+        const { getUserInfo } = await import('@/api/user')
+        const fullUserInfo = await getUserInfo()
+        console.log('📋 获取完整用户信息成功:', fullUserInfo)
+        
+        // 合并完整信息
+        userInfo.value = {
+          ...userRoleInfo,
+          ...fullUserInfo
+        }
+        setUserInfo(userInfo.value)
+      } catch (profileError) {
+        console.warn('⚠️ 获取完整用户信息失败，使用基本信息:', profileError)
+      }
+      
+      return userInfo.value
     } catch (error) {
       // 登录失败，清理数据
       token.value = ''
