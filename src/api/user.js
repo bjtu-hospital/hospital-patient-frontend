@@ -10,7 +10,7 @@ import {
 } from '@/pages/profile/user-mock'
 
 // 是否使用 Mock 数据
-const USE_MOCK = true  // ← 暂时使用 Mock 数据，等待后端接口实现
+const USE_MOCK = false  // ← 暂时使用 Mock 数据，等待后端接口实现
 
 // ==================== 用户信息相关 ====================
 

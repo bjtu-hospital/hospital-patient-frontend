@@ -71,15 +71,15 @@
               <text class="doctor-name">{{ schedule.doctorName }}</text>
               
               <view class="schedule-info">
-                <text class="schedule-time">{{ schedule.period }} {{ schedule.appointmentType }}</text>
+                <text class="schedule-time">{{ schedule.period }} {{ schedule.slotType }}</text>
                 <text class="schedule-price">¥{{ schedule.price }}</text>
               </view>
               
               <text class="schedule-dept">{{ currentDepartment?.name }}</text>
               
               <!-- 有号源 -->
-              <view class="schedule-status" v-if="schedule.availableSlots > 0">
-                <text class="status-text">余：{{ schedule.availableSlots }}</text>
+              <view class="schedule-status" v-if="schedule.remainingSlots > 0">
+                <text class="status-text">余：{{ schedule.remainingSlots }}</text>
               </view>
               
               <!-- 已约满 - 显示候补按钮 -->
@@ -183,7 +183,14 @@ const loadSchedules = async () => {
       departmentId: currentDepartment.value.id,
       // date 参数可选，不传则返回未来7天
     })
-    schedules.value = data
+    
+    if (data && data.length > 0) {
+      console.log('✅ 加载排班数据成功:', data.length, '条')
+    } else {
+      console.warn('⚠️ 未获取到排班数据')
+    }
+    
+    schedules.value = data || []
   } catch (error) {
     console.error('获取医生排班失败:', error)
     uni.showToast({
@@ -249,7 +256,7 @@ const showDeptDetail = () => {
 
 // 选择某个排班
 const selectSchedule = (schedule) => {
-  if (schedule.availableSlots === 0) {
+  if (schedule.remainingSlots === 0) {
     // 已约满，不响应点击（有候补按钮处理）
     return
   }

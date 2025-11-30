@@ -28,12 +28,21 @@ export const useUserStore = defineStore('user', () => {
       token.value = tokenStr
       setToken(tokenStr)
       
-      // 调用 /auth/me 获取用户角色信息
-      const userRoleInfo = await authApi.getCurrentUser()
-      
-      // 保存用户基本信息（角色）
-      userInfo.value = userRoleInfo
-      setUserInfo(userRoleInfo)
+      // 尝试调用 /auth/me 获取用户角色信息
+      try {
+        const userRoleInfo = await authApi.getCurrentUser()
+        
+        // 保存用户基本信息（角色）
+        userInfo.value = userRoleInfo
+        setUserInfo(userRoleInfo)
+        
+        console.log('✅ 获取用户角色成功:', userRoleInfo)
+      } catch (authError) {
+        console.warn('⚠️ 获取用户角色失败（可能token延迟写入）:', authError)
+        // 不阻断登录，使用默认信息
+        userInfo.value = { role: 'user' }
+        setUserInfo(userInfo.value)
+      }
       
       // 🆕 尝试获取完整用户信息（不阻断登录流程）
       try {
@@ -43,12 +52,13 @@ export const useUserStore = defineStore('user', () => {
         
         // 合并完整信息
         userInfo.value = {
-          ...userRoleInfo,
+          ...userInfo.value,
           ...fullUserInfo
         }
         setUserInfo(userInfo.value)
       } catch (profileError) {
-        console.warn('⚠️ 获取完整用户信息失败，使用基本信息:', profileError)
+        console.warn('⚠️ 获取完整用户信息失败（不影响登录）:', profileError)
+        // 不影响登录流程，继续使用角色信息
       }
       
       return userInfo.value

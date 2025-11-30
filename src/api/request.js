@@ -7,16 +7,40 @@
 // 从环境变量读取 API 基础地址
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
+// 🔓 公开接口列表（无需 token）
+const PUBLIC_APIS = [
+  '/patient/hospitals',              // 获取院区列表
+  '/patient/major-departments',      // 获取大科室
+  '/patient/minor-departments',      // 获取小科室
+  '/patient/clinics',                // 获取门诊
+  '/patient/doctors',                // 获取医生
+  '/patient/hospitals/schedules',    // 获取排班（关键！）
+  '/patient/departments/',           // 按科室获取排班
+  '/patient/doctors/',               // 按医生获取排班
+  '/patient/clinics/',               // 按门诊获取排班
+  '/auth/register',                  // 注册
+  '/auth/patient/login',             // 登录
+]
+
+/**
+ * 判断是否为公开接口
+ */
+const isPublicApi = (url) => {
+  return PUBLIC_APIS.some(api => url.includes(api))
+}
+
 /**
  * 请求拦截器
  */
 const requestInterceptor = (config) => {
-  // 从本地存储获取 token
-  const token = uni.getStorageSync('token')
-  if (token) {
-    config.header = {
-      ...config.header,
-      'Authorization': `Bearer ${token}`
+  // 🔑 只有非公开接口才注入 token
+  if (!isPublicApi(config.url)) {
+    const token = uni.getStorageSync('token')
+    if (token) {
+      config.header = {
+        ...config.header,
+        'Authorization': `Bearer ${token}`
+      }
     }
   }
   return config

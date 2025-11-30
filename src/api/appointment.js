@@ -22,11 +22,15 @@ const USE_MOCK = false  // ← 已对接后端真实接口
  * Response: { code: 0, message: { areas: [...] } }
  */
 export const getHospitals = (areaId) => {
+  console.log('🏥 getHospitals 调用, USE_MOCK =', USE_MOCK)
   if (USE_MOCK) {
+    console.log('📦 使用 Mock 数据')
     return Promise.resolve(mockHospitals)
   }
+  console.log('🌐 调用后端接口 /patient/hospitals')
   const params = areaId ? { area_id: areaId } : {}
   return request.get('/patient/hospitals', params).then(response => {
+    console.log('✅ 后端返回院区数据:', response)
     // 后端返回 { areas: [...] }，提取并映射字段
     const areas = response.areas || []
     return areas.map(area => ({
@@ -163,7 +167,82 @@ export const getDoctorSchedules = (params) => {
   
   return request.get('/patient/hospitals/schedules', apiParams).then(response => {
     // 后端可能返回 { schedules: [...] } 或直接返回数组
-    return response.schedules || response || []
+    const schedules = response.schedules || response || []
+    
+    // 🔑 映射后端字段到前端期望的格式
+    const mappedSchedules = schedules.map(schedule => {
+      // 🔑 映射门诊类型：根据 clinic_type 和 slot_type
+      // 后端定义：clinic_type: 0-普通门诊, 1-国疗门诊, 2-特需门诊
+      // 后端定义：slot_type: "普通", "专家", "特需"
+      
+      let type = 'normal'  // 默认普通门诊
+      
+      // 优先根据 clinic_type 判断（门诊本身的性质）
+      if (schedule.clinic_type === 1) {
+        type = 'international'  // 国疗门诊
+      } else if (schedule.clinic_type === 2) {
+        type = 'expert'  // 特需门诊
+      } else if (schedule.clinic_type === 0) {
+        // 普通门诊，但可能是专家号
+        if (schedule.slot_type === '专家' || schedule.slot_type === '特需') {
+          type = 'expert'  // 普通门诊的专家号也归为"专家/特需"类别
+        }
+      }
+      
+      const mapped = {
+        // 基本信息
+        id: schedule.schedule_id || schedule.id,
+        doctorId: schedule.doctor_id,
+        doctorName: schedule.doctor_name,
+        doctorTitle: schedule.doctor_title || schedule.title,
+        doctorAvatar: schedule.doctor_avatar || '/static/logo.png',
+        
+        // 科室和医院信息
+        departmentId: schedule.minor_dept_id || schedule.department_id,
+        departmentName: schedule.minor_dept_name || schedule.department_name,
+        hospitalId: schedule.area_id || schedule.hospital_id,
+        hospitalName: schedule.area_name || schedule.hospital_name,
+        
+        // 时间信息
+        date: schedule.schedule_date || schedule.date,
+        period: schedule.time_section || schedule.period || '上午',  // 上午/下午/晚间
+        startTime: schedule.start_time,
+        endTime: schedule.end_time,
+        weekDay: schedule.week_day,
+        
+        // 号源信息
+        totalSlots: schedule.total_slots || 0,
+        remainingSlots: schedule.remaining_slots || 0,
+        status: schedule.status,
+        
+        // 🔑 门诊类型（关键字段！）
+        type: type,  // 映射后的类型：normal/expert/international
+        slotType: schedule.slot_type,  // 保留原始值：普通/专家/特需
+        appointmentType: schedule.clinic_name || '普通门诊',
+        price: schedule.price || 50,
+        
+        // 门诊信息
+        clinicId: schedule.clinic_id,
+        clinicName: schedule.clinic_name,
+        clinicType: schedule.clinic_type  // 保留原始值：0/2/3
+      }
+      
+      return mapped
+    })
+    
+    // 统计映射后的 type 分布（用于验证）
+    const mappedTypeStats = {}
+    mappedSchedules.forEach(s => {
+      mappedTypeStats[s.type] = (mappedTypeStats[s.type] || 0) + 1
+    })
+    console.log('✅ 排班数据映射完成:', {
+      总数: mappedSchedules.length,
+      普通门诊: mappedTypeStats.normal || 0,
+      '专家/特需': mappedTypeStats.expert || 0,
+      国疗门诊: mappedTypeStats.international || 0
+    })
+    
+    return mappedSchedules
   })
 }
 
