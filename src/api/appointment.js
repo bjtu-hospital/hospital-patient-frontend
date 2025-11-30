@@ -22,15 +22,11 @@ const USE_MOCK = false  // ← 已对接后端真实接口
  * Response: { code: 0, message: { areas: [...] } }
  */
 export const getHospitals = (areaId) => {
-  console.log('🏥 getHospitals 调用, USE_MOCK =', USE_MOCK)
   if (USE_MOCK) {
-    console.log('📦 使用 Mock 数据')
     return Promise.resolve(mockHospitals)
   }
-  console.log('🌐 调用后端接口 /patient/hospitals')
   const params = areaId ? { area_id: areaId } : {}
   return request.get('/patient/hospitals', params).then(response => {
-    console.log('✅ 后端返回院区数据:', response)
     // 后端返回 { areas: [...] }，提取并映射字段
     const areas = response.areas || []
     return areas.map(area => ({
