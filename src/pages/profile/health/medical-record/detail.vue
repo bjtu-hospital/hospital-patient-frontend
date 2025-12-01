@@ -264,10 +264,16 @@ const downloadPdf = async () => {
     uni.hideLoading()
     
     // 获取下载URL
-    const downloadUrl = pdfData?.url || await downloadMedicalRecordPDF(recordId.value)
+    let downloadUrl = pdfData?.url || await downloadMedicalRecordPDF(recordId.value)
     
     if (!downloadUrl) {
       throw new Error('未获取到下载链接')
+    }
+    
+    // 如果是相对路径，拼接完整URL
+    if (downloadUrl.startsWith('/')) {
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+      downloadUrl = BASE_URL + downloadUrl
     }
     
     // 复制下载链接到剪贴板

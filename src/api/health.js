@@ -83,16 +83,7 @@ export const getMedicalRecordDetail = (recordId) => {
  * @returns {Promise} 返回 { url, filename, expireTime }
  */
 export const generateMedicalRecordPDF = (visitId) => {
-  if (USE_MOCK) {
-    console.log('Mock: 生成病历PDF', visitId)
-    return Promise.resolve({
-      url: 'https://pdfobject.com/pdf/sample.pdf',
-      filename: `病历单_${visitId}.pdf`,
-      expireTime: new Date(Date.now() + 3600000).toISOString()
-    })
-  }
-  
-  // 真实接口：POST /common/medical-record/{visit_id}/pdf
+  // ✅ 使用真实接口：POST /common/medical-record/{visit_id}/pdf
   return request.post(`/common/medical-record/${visitId}/pdf`)
 }
 
@@ -102,11 +93,7 @@ export const generateMedicalRecordPDF = (visitId) => {
  * @returns {Promise<string>} 返回PDF下载URL
  */
 export const downloadMedicalRecordPDF = (visitId) => {
-  if (USE_MOCK) {
-    console.log('Mock: 下载病历PDF', visitId)
-    return Promise.resolve('https://pdfobject.com/pdf/sample.pdf')
-  }
-  
+  // ✅ 使用真实接口：GET /common/medical-record/{visit_id}/download
   // 构建完整的下载URL（带token）
   const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
   const token = uni.getStorageSync('token')
