@@ -51,7 +51,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getMyHealthRecord } from '@/api/health'
+import { getMyHealthRecord, getMyVisitRecords } from '@/api/health'
 import BasicInfo from './components/BasicInfo.vue'
 import MedicalHistory from './components/MedicalHistory.vue'
 import ConsultationRecords from './components/ConsultationRecords.vue'
@@ -62,9 +62,21 @@ const healthData = ref(null)
 const loadHealthData = async () => {
   try {
     loading.value = true
-    const data = await getMyHealthRecord()
-    healthData.value = data
-    console.log('✅ 健康档案加载成功:', data)
+    
+    // 并行加载基本信息和就诊记录
+    const [basicData, visitRecords] = await Promise.all([
+      getMyHealthRecord(),
+      getMyVisitRecords({ page: 1, pageSize: 20 })
+    ])
+    
+    // 合并数据
+    healthData.value = {
+      ...basicData,
+      // 如果后端返回了真实数据，使用真实数据；否则使用 mock
+      consultationRecords: visitRecords.list || basicData.consultationRecords
+    }
+    
+    console.log('✅ 健康档案加载成功:', healthData.value)
   } catch (error) {
     console.error('❌ 获取健康档案失败:', error)
     uni.showToast({

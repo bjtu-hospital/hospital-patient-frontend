@@ -2,9 +2,10 @@
  * 健康档案相关接口
  */
 import request from './request'
+import { getUserInfo } from './user'
 
 // 是否使用 Mock 数据
-const USE_MOCK = true  // ← 先使用 Mock 数据测试
+const USE_MOCK = true  // ← 先使用 Mock 数据测试，但会融合真实用户信息
 
 // Mock 数据
 const mockHealthData = {
@@ -84,9 +85,35 @@ const mockHealthData = {
  * 获取我的健康档案
  * @returns {Promise} 返回健康档案数据
  */
-export const getMyHealthRecord = () => {
+export const getMyHealthRecord = async () => {
   if (USE_MOCK) {
-    return Promise.resolve(mockHealthData)
+    // 获取真实的用户信息
+    try {
+      const userInfo = await getUserInfo()
+      
+      // 融合真实用户信息和 Mock 病历数据
+      const realHealthData = {
+        ...mockHealthData,
+        patientId: userInfo.id,
+        basicInfo: {
+          name: userInfo.realName || '未设置',
+          gender: userInfo.gender || '未知',
+          age: userInfo.age || calculateAge(userInfo.birthDate),
+          height: mockHealthData.basicInfo.height,  // 暂时用 Mock
+          weight: mockHealthData.basicInfo.weight,  // 暂时用 Mock
+          phone: userInfo.maskedInfo?.phone || userInfo.phonenumber,
+          idCard: userInfo.maskedInfo?.idCard || userInfo.idCard,
+          address: mockHealthData.basicInfo.address,  // 暂时用 Mock
+          bloodType: mockHealthData.basicInfo.bloodType,  // 暂时用 Mock
+          maritalStatus: mockHealthData.basicInfo.maritalStatus  // 暂时用 Mock
+        }
+      }
+      
+      return Promise.resolve(realHealthData)
+    } catch (error) {
+      console.warn('获取用户信息失败，使用纯 Mock 数据:', error)
+      return Promise.resolve(mockHealthData)
+    }
   }
   
   // 真实接口：从 Token 中获取当前患者ID
@@ -94,6 +121,26 @@ export const getMyHealthRecord = () => {
     // 后端返回格式与医生端查看患者详情一致
     return response
   })
+}
+
+/**
+ * 计算年龄
+ * @param {String} birthDate - 出生日期 YYYY-MM-DD
+ * @returns {Number} 年龄
+ */
+const calculateAge = (birthDate) => {
+  if (!birthDate) return null
+  
+  const today = new Date()
+  const birth = new Date(birthDate)
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  
+  return age
 }
 
 /**
@@ -112,7 +159,7 @@ export const updateBasicInfo = (data) => {
 
 /**
  * 获取病历详情
- * @param {String} recordId - 病历ID
+ * @param {String} recordId - 病历ID（visit_id）
  * @returns {Promise}
  */
 export const getMedicalRecordDetail = (recordId) => {
@@ -121,5 +168,69 @@ export const getMedicalRecordDetail = (recordId) => {
     return Promise.resolve(record)
   }
   
-  return request.get(`/patient/medical-records/${recordId}`)
+  // 使用通用接口获取就诊记录详情
+  return request.get(`/common/visit-record/${recordId}`)
+}
+
+/**
+ * 生成病历单PDF
+ * @param {String} visitId - 就诊记录ID
+ * @returns {Promise} 返回 { url, filename, expireTime }
+ */
+export const generateMedicalRecordPDF = (visitId) => {
+  if (USE_MOCK) {
+    console.log('Mock: 生成病历PDF', visitId)
+    return Promise.resolve({
+      url: 'https://pdfobject.com/pdf/sample.pdf',
+      filename: `病历单_${visitId}.pdf`,
+      expireTime: new Date(Date.now() + 3600000).toISOString() // 1小时后过期
+    })
+  }
+  
+  return request.post(`/common/medical-record/${visitId}/pdf`)
+}
+
+/**
+ * 下载病历单PDF
+ * @param {String} visitId - 就诊记录ID
+ * @returns {Promise} 返回PDF文件流
+ */
+export const downloadMedicalRecordPDF = (visitId) => {
+  if (USE_MOCK) {
+    console.log('Mock: 下载病历PDF', visitId)
+    // Mock 环境下打开示例PDF
+    window.open('https://pdfobject.com/pdf/sample.pdf', '_blank')
+    return Promise.resolve()
+  }
+  
+  // 直接返回下载URL，由浏览器处理下载
+  const downloadUrl = `${request.baseURL}/common/medical-record/${visitId}/download`
+  return Promise.resolve(downloadUrl)
+}
+
+/**
+ * 获取我的就诊记录列表
+ * @param {Object} params - 查询参数 { page, pageSize }
+ * @returns {Promise} 返回就诊记录列表
+ */
+export const getMyVisitRecords = (params = {}) => {
+  if (USE_MOCK) {
+    // 返回 Mock 的就诊记录
+    const { page = 1, pageSize = 10 } = params
+    const start = (page - 1) * pageSize
+    const end = start + pageSize
+    
+    return Promise.resolve({
+      total: mockHealthData.consultationRecords.length,
+      page,
+      pageSize,
+      list: mockHealthData.consultationRecords.slice(start, end)
+    })
+  }
+  
+  // 真实接口：获取患者自己的就诊记录
+  return request.get('/patient/visit-records', {
+    page: params.page || 1,
+    pageSize: params.pageSize || 10
+  })
 }

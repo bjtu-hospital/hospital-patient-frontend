@@ -19,8 +19,8 @@
 
 获取当前登录用户的完整个人信息。
 
-- **接口地址**: `GET /patient/profile`
-- **请求方式**: `GET`
+- **接口地址**: `POST /auth/user-info`
+- **请求方式**: `POST`
 - **是否需要登录**: 是
 
 **请求头**:
@@ -28,29 +28,43 @@
 Authorization: Bearer <token>
 ```
 
-**请求参数**: 无
+**请求参数**: 无（POST 请求，但不需要请求体）
 
 **返回数据**:
 ```json
 {
   "code": 0,
   "message": {
-    "id": "patient_001",
-    "phonenumber": "18993856575",
-    "realName": "张三",
-    "studentId": "23301087",
-    "idCard": "110101199001011234",
-    "email": "zhangsan@bjtu.edu.cn",
-    "gender": "男",
-    "birthDate": "1990-01-01",
-    "patientType": "学生",
-    "avatar": "https://example.com/avatar.jpg",
-    "verified": true,
-    "createdAt": "2024-10-01 10:00:00",
-    "updatedAt": "2024-11-30 15:30:00"
+    "patient": {
+      "id": "3",
+      "phonenumber": "18993856575",
+      "realName": "张三",
+      "studentId": "23301087",
+      "idCard": "110101199001011234",
+      "email": "zhangsan@bjtu.edu.cn",
+      "gender": "男",
+      "birthDate": "1990-01-01",
+      "patientType": "学生",
+      "avatar": null,
+      "verified": false,
+      "createdAt": "2025-11-13 00:00:00",
+      "updatedAt": null,
+      "maskedInfo": {
+        "phone": "189****6575",
+        "idCard": "1101********1234"
+      },
+      "age": 35
+    },
+    "doctor": null
   }
 }
 ```
+
+**⚠️ 重要说明**:
+- 这是多角色通用接口，返回 `{ patient: {...}, doctor: {...} }` 结构
+- 患者端只使用 `patient` 字段
+- 医生端会同时返回 `doctor` 字段
+- 前端 API 会自动提取 `patient` 部分
 
 **字段说明**:
 - `id` (string): 患者唯一ID
@@ -66,6 +80,8 @@ Authorization: Bearer <token>
 - `verified` (boolean): 是否实名认证
 - `createdAt` (string): 创建时间
 - `updatedAt` (string, optional): 更新时间
+- `maskedInfo` (object): 脱敏信息（用于显示）
+- `age` (number): 年龄（根据出生日期计算）
 
 **错误返回**:
 

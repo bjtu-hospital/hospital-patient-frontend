@@ -160,9 +160,15 @@
 
     <!-- 底部操作栏 -->
     <view class="action-bar">
-      <button type="primary" class="download-btn" @tap="downloadPdf">
-        <uni-icons type="download" size="18" color="#fff"></uni-icons>
-        <text class="btn-text">下载病历 PDF</text>
+      <button 
+        type="primary" 
+        class="download-btn" 
+        :disabled="pdfGenerating"
+        :loading="pdfGenerating"
+        @tap="downloadPdf"
+      >
+        <uni-icons v-if="!pdfGenerating" type="download" size="18" color="#fff"></uni-icons>
+        <text class="btn-text">{{ pdfGenerating ? '生成中...' : '复制下载链接' }}</text>
       </button>
     </view>
   </view>
@@ -170,11 +176,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getMedicalRecordDetail } from '@/api/health'
+import { getMedicalRecordDetail, generateMedicalRecordPDF, downloadMedicalRecordPDF } from '@/api/health'
+import { useUserStore } from '@/stores/user'
 
+const userStore = useUserStore()
 const loading = ref(true)
 const recordData = ref(null)
 const recordId = ref('')
+const pdfGenerating = ref(false)
 
 onMounted(() => {
   // 获取页面参数
@@ -198,13 +207,17 @@ const loadRecordDetail = async () => {
   try {
     loading.value = true
     const data = await getMedicalRecordDetail(recordId.value)
-    // 补充一些 mock 数据中可能缺失的字段，以匹配 UI
+    
+    // 合并用户信息（从 Pinia Store 或 API 返回）
+    const userInfo = userStore.userInfo || {}
     recordData.value = {
       ...data,
-      patientName: '张三', // Mock 数据中可能没有，这里先写死或从 user store 获取
-      gender: '男',
-      age: 35
+      // 优先使用后端返回数据，不存在则使用用户信息
+      patientName: data.patientName || userInfo.realName || userInfo.name || '-',
+      gender: data.gender || userInfo.gender || '-',
+      age: data.age || (userInfo.birthDate ? calculateAge(userInfo.birthDate) : '-')
     }
+    
     console.log('✅ 病历详情加载成功:', recordData.value)
   } catch (error) {
     console.error('❌ 获取病历详情失败:', error)
@@ -217,56 +230,92 @@ const loadRecordDetail = async () => {
   }
 }
 
-const downloadPdf = () => {
-  const pdfUrl = recordData.value?.pdfUrl
-  if (!pdfUrl) {
+// 计算年龄
+const calculateAge = (birthDate) => {
+  if (!birthDate) return '-'
+  const birth = new Date(birthDate)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  return age
+}
+
+// 下载PDF - 简化为复制下载链接
+const downloadPdf = async () => {
+  if (!recordId.value) {
     uni.showToast({
-      title: '暂无病历单',
+      title: '病历ID无效',
       icon: 'none'
     })
     return
   }
   
-  // H5端使用新窗口打开PDF
-  // #ifdef H5
-  window.open(pdfUrl, '_blank')
-  // #endif
-  
-  // 小程序端使用下载
-  // #ifndef H5
-  uni.showLoading({ title: '正在下载...' })
-  uni.downloadFile({
-    url: pdfUrl,
-    success: (res) => {
-      uni.hideLoading()
-      if (res.statusCode === 200) {
-        const filePath = res.tempFilePath
-        uni.openDocument({
-          filePath: filePath,
-          fileType: 'pdf',
-          success: () => {
-            console.log('打开文档成功')
-          },
-          fail: (err) => {
-            console.error('打开文档失败:', err)
-            uni.showToast({
-              title: '无法打开PDF文件',
-              icon: 'none'
-            })
+  try {
+    pdfGenerating.value = true
+    uni.showLoading({ title: '生成PDF中...' })
+    
+    // 生成PDF并获取下载链接
+    const pdfData = await generateMedicalRecordPDF(recordId.value)
+    console.log('✅ PDF生成成功:', pdfData)
+    
+    uni.hideLoading()
+    
+    // 获取下载URL
+    const downloadUrl = pdfData?.url || await downloadMedicalRecordPDF(recordId.value)
+    
+    if (!downloadUrl) {
+      throw new Error('未获取到下载链接')
+    }
+    
+    // 复制下载链接到剪贴板
+    uni.setClipboardData({
+      data: downloadUrl,
+      success: () => {
+        uni.showToast({
+          title: '下载链接已复制',
+          icon: 'success',
+          duration: 2000
+        })
+        console.log('✅ 下载链接已复制:', downloadUrl)
+      },
+      fail: (err) => {
+        console.error('❌ 复制失败:', err)
+        uni.showModal({
+          title: '下载链接',
+          content: downloadUrl,
+          showCancel: true,
+          cancelText: '关闭',
+          confirmText: '复制',
+          success: (res) => {
+            if (res.confirm) {
+              uni.setClipboardData({
+                data: downloadUrl,
+                success: () => {
+                  uni.showToast({
+                    title: '已复制',
+                    icon: 'success'
+                  })
+                }
+              })
+            }
           }
         })
       }
-    },
-    fail: (err) => {
-      uni.hideLoading()
-      console.error('下载PDF失败:', err)
-      uni.showToast({
-        title: '下载失败',
-        icon: 'none'
-      })
-    }
-  })
-  // #endif
+    })
+    
+  } catch (error) {
+    uni.hideLoading()
+    console.error('❌ PDF处理失败:', error)
+    uni.showToast({
+      title: error.message || 'PDF生成失败',
+      icon: 'none'
+    })
+  } finally {
+    pdfGenerating.value = false
+  }
 }
 </script>
 

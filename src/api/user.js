@@ -10,7 +10,7 @@ import {
 } from '@/pages/profile/user-mock'
 
 // 是否使用 Mock 数据
-const USE_MOCK = true  // ← 暂时使用 Mock 数据，等待后端接口实现
+const USE_MOCK = false  // ← 暂时使用 Mock 数据，等待后端接口实现
 
 // ==================== 用户信息相关 ====================
 
@@ -22,7 +22,12 @@ export const getUserInfo = () => {
   if (USE_MOCK) {
     return Promise.resolve(mockUserInfo)
   }
-  return request.get('/patient/profile')
+  // 调用多角色通用接口，返回患者信息
+  return request.post('/auth/user-info').then(response => {
+    // 后端返回 { patient: {...}, doctor: null }
+    // 前端只需要 patient 部分
+    return response.patient || {}
+  })
 }
 
 /**
