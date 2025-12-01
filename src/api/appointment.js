@@ -13,6 +13,59 @@ import { mockAppointments, mockPatients } from '@/pages/profile/user-mock'
 // 是否使用 Mock 数据
 const USE_MOCK = false  // ← 已对接后端真实接口
 
+/**
+ * 根据当前日期动态调整 Mock 预约数据
+ * 这样确保 Mock 数据中的日期始终相对于当前时间是合理的
+ */
+const adjustMockAppointmentsDates = (appointments) => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  return appointments.map(appointment => {
+    const appointmentDate = new Date(appointment.appointmentDate)
+    const diffDays = Math.floor((appointmentDate - today) / (1000 * 60 * 60 * 24))
+    
+    // 根据原始日期与当前日期的差值来判断状态
+    let newDate = new Date(today)
+    let status = appointment.status
+    let canCancel = appointment.canCancel
+    let canReschedule = appointment.canReschedule
+    
+    // 如果原始数据是未来日期（pending状态）
+    if (status === 'pending' && diffDays >= 0) {
+      // 保持为未来日期（今天+2天或今天+5天等）
+      newDate.setDate(today.getDate() + Math.max(2, diffDays))
+      canCancel = true
+      canReschedule = true
+    }
+    // 如果原始数据是过去日期（completed或cancelled状态）
+    else if ((status === 'completed' || status === 'cancelled') && diffDays < 0) {
+      // 保持为过去日期
+      newDate.setDate(today.getDate() + Math.min(-1, diffDays))
+      canCancel = false
+      canReschedule = false
+    }
+    // 如果数据状态与日期不匹配，按状态调整
+    else if (status === 'pending') {
+      newDate.setDate(today.getDate() + 2)
+      canCancel = true
+      canReschedule = true
+    } else {
+      newDate.setDate(today.getDate() - 3)
+      canCancel = false
+      canReschedule = false
+    }
+    
+    return {
+      ...appointment,
+      appointmentDate: newDate.toISOString().split('T')[0],
+      status,
+      canCancel,
+      canReschedule
+    }
+  })
+}
+
 // ==================== 医院相关 ====================
 
 /**
@@ -284,8 +337,11 @@ export const getMyAppointments = (params = {}) => {
     // 🔧 FIXED: 从本地存储读取用户创建的预约 + 预定义的 Mock 数据合并
     const storedAppointments = uni.getStorageSync('myAppointments') || []
     
+    // 动态调整 Mock 数据的日期，使其相对于当前时间合理
+    const adjustedMockAppointments = adjustMockAppointmentsDates(mockAppointments)
+    
     // 合并本地存储和 Mock 数据（本地存储优先）
-    let allAppointments = [...storedAppointments, ...mockAppointments]
+    let allAppointments = [...storedAppointments, ...adjustedMockAppointments]
     
     // 去重：如果同一个 ID 既在本地存储又在 Mock 数据中，只保留本地存储的
     const appointmentMap = new Map()

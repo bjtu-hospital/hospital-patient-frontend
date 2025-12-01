@@ -46,15 +46,8 @@ export const mockUserInfo = {
 }
 
 // ==================== 预约记录 ====================
-// 生成动态日期的预约记录
-const generateMockAppointments = () => {
-  const appointments = []
-  const today = new Date()
-  
-  // 待就诊的预约（未来日期）
-  const futureDate1 = new Date(today)
-  futureDate1.setDate(today.getDate() + 2)
-  appointments.push({
+export const mockAppointments = [
+  {
     id: 'appointment_001',
     orderNo: '20241108001',
     hospitalId: 'hospital_001',
@@ -64,7 +57,7 @@ const generateMockAppointments = () => {
     doctorName: '张医生',
     doctorTitle: '主治医师',
     doctorAvatar: '/static/logo.png',
-    appointmentDate: futureDate1.toISOString().split('T')[0],
+    appointmentDate: '2025-12-03',  // 相对于当前日期的未来时间
     appointmentTime: '上午 08:00-08:30',
     patientName: '张三',
     patientId: 'patient_001',
@@ -74,12 +67,9 @@ const generateMockAppointments = () => {
     status: 'pending',  // pending待就诊/completed已完成/cancelled已取消
     canCancel: true,
     canReschedule: true,
-    createdAt: today.toISOString().replace('T', ' ').slice(0, 19)
-  })
-  
-  const futureDate2 = new Date(today)
-  futureDate2.setDate(today.getDate() + 5)
-  appointments.push({
+    createdAt: '2025-12-01 10:00:00'
+  },
+  {
     id: 'appointment_002',
     orderNo: '20241108002',
     hospitalId: 'hospital_002',
@@ -89,7 +79,7 @@ const generateMockAppointments = () => {
     doctorName: '李主任',
     doctorTitle: '主任医师',
     doctorAvatar: '/static/logo.png',
-    appointmentDate: futureDate2.toISOString().split('T')[0],
+    appointmentDate: '2025-12-06',
     appointmentTime: '下午 14:00-14:30',
     patientName: '李四',
     patientId: 'patient_002',
@@ -99,13 +89,9 @@ const generateMockAppointments = () => {
     status: 'pending',
     canCancel: true,
     canReschedule: true,
-    createdAt: today.toISOString().replace('T', ' ').slice(0, 19)
-  })
-  
-  // 已完成的预约（过去日期）
-  const pastDate1 = new Date(today)
-  pastDate1.setDate(today.getDate() - 3)
-  appointments.push({
+    createdAt: '2025-12-01 10:00:00'
+  },
+  {
     id: 'appointment_003',
     orderNo: '20241105001',
     hospitalId: 'hospital_001',
@@ -115,7 +101,7 @@ const generateMockAppointments = () => {
     doctorName: '王医生',
     doctorTitle: '副主任医师',
     doctorAvatar: '/static/logo.png',
-    appointmentDate: pastDate1.toISOString().split('T')[0],
+    appointmentDate: '2025-11-28',  // 过去时间
     appointmentTime: '上午 09:00-09:30',
     patientName: '张三',
     patientId: 'patient_001',
@@ -125,12 +111,9 @@ const generateMockAppointments = () => {
     status: 'completed',
     canCancel: false,
     canReschedule: false,
-    createdAt: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
-  })
-  
-  const pastDate2 = new Date(today)
-  pastDate2.setDate(today.getDate() - 7)
-  appointments.push({
+    createdAt: '2025-11-26 14:20:00'
+  },
+  {
     id: 'appointment_004',
     orderNo: '20241101001',
     hospitalId: 'hospital_001',
@@ -140,7 +123,7 @@ const generateMockAppointments = () => {
     doctorName: '赵医生',
     doctorTitle: '主治医师',
     doctorAvatar: '/static/logo.png',
-    appointmentDate: pastDate2.toISOString().split('T')[0],
+    appointmentDate: '2025-11-24',
     appointmentTime: '上午 10:00-10:30',
     patientName: '张三',
     patientId: 'patient_001',
@@ -150,13 +133,9 @@ const generateMockAppointments = () => {
     status: 'completed',
     canCancel: false,
     canReschedule: false,
-    createdAt: new Date(today.getTime() - 9 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
-  })
-  
-  // 已取消的预约
-  const pastDate3 = new Date(today)
-  pastDate3.setDate(today.getDate() - 2)
-  appointments.push({
+    createdAt: '2025-11-22 09:30:00'
+  },
+  {
     id: 'appointment_005',
     orderNo: '20241106001',
     hospitalId: 'hospital_001',
@@ -166,7 +145,7 @@ const generateMockAppointments = () => {
     doctorName: '孙医生',
     doctorTitle: '主任医师',
     doctorAvatar: '/static/logo.png',
-    appointmentDate: pastDate3.toISOString().split('T')[0],
+    appointmentDate: '2025-11-29',
     appointmentTime: '下午 15:00-15:30',
     patientName: '王五',
     patientId: 'patient_003',
@@ -176,14 +155,9 @@ const generateMockAppointments = () => {
     status: 'cancelled',
     canCancel: false,
     canReschedule: false,
-    createdAt: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
-  })
-  
-  return appointments
-}
-
-// 导出可修改的预约数据（动态生成）
-export const mockAppointments = generateMockAppointments()
+    createdAt: '2025-11-27 16:00:00'
+  }
+]
 
 // ==================== 健康档案 ====================
 export const mockHealthRecords = {
