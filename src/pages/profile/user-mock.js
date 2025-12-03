@@ -5,43 +5,70 @@
 // ==================== 就诊人数据 ====================
 export const mockPatients = [
   {
-    id: 'patient_001',
+    relationId: 1,
+    patientId: 101,
     name: '张三',
-    idCard: '110101199001011234',
-    phone: '13800138000',
-    relation: '本人',
+    identifier: '2021001',                    // 学号/工号（明文）
+    idCard: '110101********1234',             // 身份证（已脱敏）
+    phone: '138****8000',                     // 手机号（已脱敏）
+    gender: '男',
+    birthDate: '1990-01-01',
+    age: 35,
+    relationType: '本人',
     isDefault: true,
-    createdAt: '2024-10-01 10:00:00'
+    remark: '',
+    createdAt: '2024-10-01T10:00:00'
   },
   {
-    id: 'patient_002',
+    relationId: 2,
+    patientId: 102,
     name: '李四',
-    idCard: '110101199501011234',
-    phone: '13900139000',
-    relation: '子女',
+    identifier: '2021002',
+    idCard: '110101********5678',
+    phone: '139****9000',
+    gender: '女',
+    birthDate: '1995-05-15',
+    age: 30,
+    relationType: '配偶',
     isDefault: false,
-    createdAt: '2024-10-15 14:30:00'
+    remark: '妻子',
+    createdAt: '2024-10-15T14:30:00'
   },
   {
-    id: 'patient_003',
+    relationId: 3,
+    patientId: 103,
     name: '王五',
-    idCard: '110101196001011234',
-    phone: '13700137000',
-    relation: '父母',
+    identifier: '',                           // 非校内人员无学号
+    idCard: '110101********9012',
+    phone: '137****7000',
+    gender: '男',
+    birthDate: '1960-01-01',
+    age: 65,
+    relationType: '父母',
     isDefault: false,
-    createdAt: '2024-10-20 09:15:00'
+    remark: '父亲',
+    createdAt: '2024-10-20T09:15:00'
   }
 ]
 
 // ==================== 用户信息 ====================
 export const mockUserInfo = {
   id: 'user_001',
-  studentId: '23301087',
+  identifier: '2021001',                      // 学号/工号
+  idCard: '110101********1234',               // 身份证（已脱敏）
   realName: '张三',
-  phone: '13800138000',
-  idCard: '110101199001011234',
+  phonenumber: '13800138000',
+  gender: '男',
+  birthDate: '1990-01-01',
+  age: 35,
+  email: 'zhangsan@bjtu.edu.cn',
   avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-  verified: true,
+  status: 'active',
+  riskScore: 0,
+  maskedInfo: {
+    phone: '138****8000',
+    idCard: '110101********1234'
+  },
   createdAt: '2024-10-01 10:00:00'
 }
 

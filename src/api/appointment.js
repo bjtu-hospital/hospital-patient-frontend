@@ -376,7 +376,51 @@ export const getMyAppointments = (params = {}) => {
     page: params.page || 1,
     pageSize: params.pageSize || 10
   }
-  return request.get('/patient/appointments', apiParams)
+  
+  return request.get('/patient/appointments', apiParams).then(response => {
+    // 🔧 修复：映射后端状态到前端状态
+    // 后端: confirmed/finished/cancelled → 前端: pending/completed/cancelled
+    const statusMap = {
+      'confirmed': 'pending',    // 已确认 → 待就诊
+      'finished': 'completed',   // 已完成 → 已完成
+      'cancelled': 'cancelled'   // 已取消 → 已取消
+    }
+    
+    // 映射列表中的每个预约记录
+    if (response && response.list) {
+      response.list = response.list.map(appointment => {
+        const mappedStatus = statusMap[appointment.status] || appointment.status
+        
+        // 判断预约日期是否在未来
+        const appointmentDate = new Date(appointment.appointmentDate)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)  // 重置为当天0点
+        appointmentDate.setHours(0, 0, 0, 0)
+        
+        const isPastAppointment = appointmentDate < today  // 过去的日期
+        const isFutureAppointment = appointmentDate >= today  // 今天或未来
+        
+        // 🔧 修复：过去的confirmed状态应该自动转为completed
+        let finalStatus = mappedStatus
+        if (isPastAppointment && mappedStatus === 'pending') {
+          finalStatus = 'completed'  // 过去的待就诊自动变为已完成
+        }
+        
+        // 判断是否可取消/改约（只有未来的待就诊预约才能操作）
+        const canCancel = finalStatus === 'pending' && isFutureAppointment
+        const canReschedule = finalStatus === 'pending' && isFutureAppointment
+        
+        return {
+          ...appointment,
+          status: finalStatus,
+          canCancel,
+          canReschedule
+        }
+      })
+    }
+    
+    return response
+  })
 }
 
 /**

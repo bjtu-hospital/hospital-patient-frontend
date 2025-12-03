@@ -23,21 +23,22 @@
             <text class="patient-name">{{ patient.name }}</text>
             <view class="patient-tags">
               <text class="tag default" v-if="patient.isDefault">默认</text>
-              <text class="tag" :class="patient.type">{{ getPatientTypeText(patient.type) }}</text>
+              <text class="tag relation">{{ patient.relation || patient.relationType }}</text>
             </view>
           </view>
           <view class="patient-details">
-            <text class="detail-item">身份证：{{ maskIdCard(patient.idCard) }}</text>
-            <text class="detail-item">手机号：{{ patient.phone }}</text>
-            <text class="detail-item">关系：{{ patient.relation }}</text>
+            <text class="detail-item" v-if="patient.identifier">学号/工号：{{ patient.identifier }}</text>
+            <text class="detail-item">身份证：{{ patient.idCard || '未填写' }}</text>
+            <text class="detail-item" v-if="patient.phone">手机号：{{ patient.phone }}</text>
+            <text class="detail-item">关系：{{ patient.relation || patient.relationType }}</text>
           </view>
         </view>
         <view class="patient-actions">
           <view class="action-btn edit" @tap.stop="editPatient(patient)">
-            <Edit2 :size="14" color="#00BFCC" />
+            <text class="btn-text">编辑</text>
           </view>
           <view class="action-btn delete" @tap.stop="deletePatient(patient)" v-if="!patient.isDefault">
-            <Trash2 :size="14" color="#ef4444" />
+            <text class="btn-text">删除</text>
           </view>
         </view>
       </view>
@@ -86,11 +87,11 @@
           </view>
           
           <view class="input-group">
-            <text class="input-label">手机号 *</text>
+            <text class="input-label">手机号</text>
             <input 
               class="input-field" 
               type="text" 
-              placeholder="请输入手机号"
+              placeholder="请输入手机号（可选）"
               v-model="formData.phone"
             />
           </view>
@@ -179,9 +180,11 @@ const loadPatients = async () => {
   try {
     uni.showLoading({ title: '加载中...' })
     const data = await getPatients()
+    console.log('加载就诊人数据:', data)
     patients.value = data || []
     uni.hideLoading()
   } catch (error) {
+    console.error('加载就诊人失败:', error)
     uni.hideLoading()
     uni.showToast({
       title: error.message || '加载失败',
@@ -219,7 +222,7 @@ const editPatient = (patient) => {
     name: patient.name,
     idCard: patient.idCard,
     phone: patient.phone,
-    relation: patient.relation,
+    relation: patient.relation || patient.relationType,
     isDefault: patient.isDefault
   })
   editingPatient.value = patient
@@ -279,12 +282,8 @@ const savePatient = async () => {
     uni.showToast({ title: '身份证号格式不正确', icon: 'none' })
     return
   }
-  if (!formData.phone.trim()) {
-    uni.showToast({ title: '请输入手机号', icon: 'none' })
-    return
-  }
-  // 验证手机号格式
-  if (!/^1[3-9]\d{9}$/.test(formData.phone)) {
+  // 验证手机号格式（如果填写了手机号）
+  if (formData.phone.trim() && !/^1[3-9]\d{9}$/.test(formData.phone)) {
     uni.showToast({ title: '手机号格式不正确', icon: 'none' })
     return
   }
@@ -292,13 +291,23 @@ const savePatient = async () => {
   try {
     uni.showLoading({ title: editingPatient.value ? '保存中...' : '添加中...' })
     
+    // 构建请求数据，将relation映射为relationType
+    const requestData = {
+      name: formData.name,
+      idCard: formData.idCard,
+      phone: formData.phone,
+      relationType: formData.relation,  // 映射字段名
+      isDefault: formData.isDefault
+    }
+    
     if (editingPatient.value) {
       // 编辑现有就诊人
-      await updatePatientApi(editingPatient.value.id, formData)
+      await updatePatientApi(editingPatient.value.id, requestData)
       uni.showToast({ title: '修改成功', icon: 'success' })
     } else {
       // 添加新就诊人
-      await addPatientApi(formData)
+      console.log('添加就诊人数据:', requestData)
+      await addPatientApi(requestData)
       uni.showToast({ title: '添加成功', icon: 'success' })
     }
     
@@ -306,9 +315,10 @@ const savePatient = async () => {
     showAddModal.value = false
     
     // 重新加载数据
-    loadPatients()
+    await loadPatients()
     
   } catch (error) {
+    console.error('保存就诊人失败:', error)
     uni.hideLoading()
     uni.showToast({
       title: error.message || '操作失败',
@@ -440,8 +450,7 @@ onMounted(() => {
 }
 
 .action-btn {
-  width: 56rpx;
-  height: 56rpx;
+  padding: 12rpx 20rpx;
   border-radius: 12rpx;
   display: flex;
   align-items: center;
@@ -454,9 +463,21 @@ onMounted(() => {
   border: 1rpx solid #00BFCC;
 }
 
+.action-btn.edit .btn-text {
+  color: #00BFCC;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
 .action-btn.delete {
   background: #fef2f2;
   border: 1rpx solid #ef4444;
+}
+
+.action-btn.delete .btn-text {
+  color: #ef4444;
+  font-size: 24rpx;
+  font-weight: 500;
 }
 
 .action-btn:active {
