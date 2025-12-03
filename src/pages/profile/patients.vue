@@ -324,6 +324,8 @@ const savePatient = async () => {
       title: error.message || '操作失败',
       icon: 'none'
     })
+  } finally {
+    // 确保总是隐藏加载提示
   }
 }
 

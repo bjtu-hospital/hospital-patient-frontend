@@ -18,83 +18,194 @@
       <view class="register-card">
         <view class="card-header">
           <text class="card-title">创建账户</text>
-          <text class="card-subtitle">请填写您的基本信息</text>
+          <text class="card-subtitle">{{ stepSubtitle }}</text>
+        </view>
+
+        <!-- 步骤指示器 -->
+        <view class="step-indicator">
+          <view class="step" :class="{ active: currentStep >= 1, completed: currentStep > 1 }">
+            <view class="step-dot">1</view>
+            <text class="step-text">验证手机</text>
+          </view>
+          <view class="step-line" :class="{ active: currentStep > 1 }"></view>
+          <view class="step" :class="{ active: currentStep >= 2, completed: currentStep > 2 }">
+            <view class="step-dot">2</view>
+            <text class="step-text">填写信息</text>
+          </view>
+          <view class="step-line" :class="{ active: currentStep > 2 }"></view>
+          <view class="step" :class="{ active: currentStep >= 3 }">
+            <view class="step-dot">3</view>
+            <text class="step-text">完成注册</text>
+          </view>
         </view>
 
         <!-- 表单区域 -->
         <view class="form-section">
-          <!-- 手机号输入 -->
-          <view class="input-group">
-            <view class="input-label">手机号 *</view>
-            <view class="input-wrapper">
-              <uni-icons type="phone" size="18" color="#00D5D9" class="input-icon"></uni-icons>
-              <input 
-                class="input-field" 
-                type="number" 
-                placeholder="请输入手机号"
-                v-model="formData.phonenumber"
-                placeholder-class="input-placeholder"
-                maxlength="11"
-              />
-            </view>
-          </view>
-
-          <!-- 姓名输入 -->
-          <view class="input-group">
-            <view class="input-label">姓名 *</view>
-            <view class="input-wrapper">
-              <uni-icons type="person" size="18" color="#00D5D9" class="input-icon"></uni-icons>
-              <input 
-                class="input-field" 
-                type="text" 
-                placeholder="请输入您的姓名"
-                v-model="formData.name"
-                placeholder-class="input-placeholder"
-              />
-            </view>
-          </view>
-
-          <!-- 密码输入 -->
-          <view class="input-group">
-            <view class="input-label">设置密码 *</view>
-            <view class="input-wrapper">
-              <uni-icons type="locked" size="18" color="#00D5D9" class="input-icon"></uni-icons>
-              <input 
-                class="input-field" 
-                :type="showPassword ? 'text' : 'password'"
-                placeholder="至少6位密码"
-                v-model="formData.password"
-                placeholder-class="input-placeholder"
-              />
-              <view 
-                class="password-toggle" 
-                @tap="togglePassword"
-              >
-                <uni-icons v-if="showPassword" type="eye-slash" size="18" color="#999"></uni-icons>
-                <uni-icons v-else type="eye" size="18" color="#999"></uni-icons>
+          <!-- 步骤1：手机验证 -->
+          <view v-if="currentStep === 1" class="step-content">
+            <!-- 手机号输入 -->
+            <view class="input-group">
+              <view class="input-label">手机号</view>
+              <view class="input-wrapper">
+                <uni-icons type="phone" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <input 
+                  class="input-field" 
+                  type="number" 
+                  placeholder="请输入手机号"
+                  v-model="formData.phonenumber"
+                  placeholder-class="input-placeholder"
+                  maxlength="11"
+                  :disabled="isCodeSent"
+                />
               </view>
             </view>
+
+            <!-- 验证码输入 -->
+            <view class="input-group" v-if="isCodeSent">
+              <view class="input-label">验证码</view>
+              <view class="input-wrapper code-wrapper">
+                <uni-icons type="auth" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <input 
+                  class="input-field" 
+                  type="number" 
+                  placeholder="请输入6位验证码"
+                  v-model="formData.verifyCode"
+                  placeholder-class="input-placeholder"
+                  maxlength="6"
+                />
+                <view class="code-btn" :class="{ disabled: countdown > 0 }" @tap="sendCode">
+                  <text>{{ countdown > 0 ? `${countdown}s后重发` : '重新发送' }}</text>
+                </view>
+              </view>
+            </view>
+
+            <!-- 发送验证码按钮 -->
+            <button 
+              v-if="!isCodeSent"
+              class="primary-button" 
+              :class="{ 'loading': isSendingCode }"
+              @tap="sendCode"
+              :disabled="isSendingCode"
+            >
+              {{ isSendingCode ? '发送中...' : '获取验证码' }}
+            </button>
+
+            <!-- 验证按钮 -->
+            <button 
+              v-else
+              class="primary-button" 
+              :class="{ 'loading': isVerifying }"
+              @tap="verifyCode"
+              :disabled="isVerifying || formData.verifyCode.length !== 6"
+            >
+              {{ isVerifying ? '验证中...' : '验证并继续' }}
+            </button>
           </view>
 
-          <!-- 确认密码输入 -->
-          <view class="input-group">
-            <view class="input-label">确认密码 *</view>
-            <view class="input-wrapper">
-              <uni-icons type="locked" size="18" color="#00D5D9" class="input-icon"></uni-icons>
-              <input 
-                class="input-field" 
-                :type="showConfirmPassword ? 'text' : 'password'"
-                placeholder="请再次输入密码"
-                v-model="formData.confirmPassword"
-                placeholder-class="input-placeholder"
-              />
-              <view 
-                class="password-toggle" 
-                @tap="toggleConfirmPassword"
-              >
-                <uni-icons v-if="showConfirmPassword" type="eye-slash" size="18" color="#999"></uni-icons>
-                <uni-icons v-else type="eye" size="18" color="#999"></uni-icons>
+          <!-- 步骤2：填写信息 -->
+          <view v-if="currentStep === 2" class="step-content">
+            <!-- 已验证手机号显示 -->
+            <view class="verified-phone">
+              <uni-icons type="checkbox-filled" size="16" color="#10B981"></uni-icons>
+              <text class="phone-text">{{ maskedPhone }}</text>
+              <text class="verified-tag">已验证</text>
+            </view>
+
+            <!-- 姓名输入 -->
+            <view class="input-group">
+              <view class="input-label">姓名 *</view>
+              <view class="input-wrapper">
+                <uni-icons type="person" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <input 
+                  class="input-field" 
+                  type="text" 
+                  placeholder="请输入您的真实姓名"
+                  v-model="formData.name"
+                  placeholder-class="input-placeholder"
+                />
               </view>
+            </view>
+
+            <!-- 密码输入 -->
+            <view class="input-group">
+              <view class="input-label">设置密码 *</view>
+              <view class="input-wrapper">
+                <uni-icons type="locked" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <input 
+                  class="input-field" 
+                  :type="showPassword ? 'text' : 'password'"
+                  placeholder="至少6位密码"
+                  v-model="formData.password"
+                  placeholder-class="input-placeholder"
+                />
+                <view class="password-toggle" @tap="togglePassword">
+                  <uni-icons :type="showPassword ? 'eye-slash' : 'eye'" size="18" color="#999"></uni-icons>
+                </view>
+              </view>
+            </view>
+
+            <!-- 确认密码输入 -->
+            <view class="input-group">
+              <view class="input-label">确认密码 *</view>
+              <view class="input-wrapper">
+                <uni-icons type="locked" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <input 
+                  class="input-field" 
+                  :type="showConfirmPassword ? 'text' : 'password'"
+                  placeholder="请再次输入密码"
+                  v-model="formData.confirmPassword"
+                  placeholder-class="input-placeholder"
+                />
+                <view class="password-toggle" @tap="toggleConfirmPassword">
+                  <uni-icons :type="showConfirmPassword ? 'eye-slash' : 'eye'" size="18" color="#999"></uni-icons>
+                </view>
+              </view>
+            </view>
+
+            <!-- 学号/工号（可选） -->
+            <view class="input-group">
+              <view class="input-label">学号/工号 <text class="optional-tag">选填</text></view>
+              <view class="input-wrapper">
+                <uni-icons type="wallet" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <input 
+                  class="input-field" 
+                  type="text" 
+                  placeholder="请输入学号或工号"
+                  v-model="formData.identifier"
+                  placeholder-class="input-placeholder"
+                />
+              </view>
+            </view>
+
+            <!-- 用户协议 -->
+            <view class="agreement-section">
+              <view class="checkbox-wrapper" @tap="toggleAgreement">
+                <text class="checkbox" :class="{ 'checked': agreedToTerms }">
+                  {{ agreedToTerms ? '✅' : '☐' }}
+                </text>
+                <text class="agreement-text">
+                  我已阅读并同意
+                  <text class="agreement-link" @tap.stop="showAgreement">《用户协议》</text>
+                  和
+                  <text class="agreement-link" @tap.stop="showPrivacy">《隐私政策》</text>
+                </text>
+              </view>
+            </view>
+
+            <!-- 注册按钮 -->
+            <button 
+              class="primary-button" 
+              :class="{ 'loading': isLoading }"
+              @tap="handleRegister"
+              :disabled="isLoading || !agreedToTerms"
+            >
+              {{ isLoading ? '注册中...' : '立即注册' }}
+            </button>
+
+            <!-- 返回上一步 -->
+            <view class="back-step" @tap="currentStep = 1">
+              <uni-icons type="left" size="14" color="#666"></uni-icons>
+              <text>返回修改手机号</text>
             </view>
           </view>
 
@@ -102,31 +213,6 @@
           <view v-if="errorMessage" class="error-message">
             <text class="error-text">{{ errorMessage }}</text>
           </view>
-
-          <!-- 用户协议 -->
-          <view class="agreement-section">
-            <view class="checkbox-wrapper" @tap="toggleAgreement">
-              <text class="checkbox" :class="{ 'checked': agreedToTerms }">
-                {{ agreedToTerms ? '✅' : '☐' }}
-              </text>
-              <text class="agreement-text">
-                我已阅读并同意
-                <text class="agreement-link" @tap.stop="showAgreement">《用户协议》</text>
-                和
-                <text class="agreement-link" @tap.stop="showPrivacy">《隐私政策》</text>
-              </text>
-            </view>
-          </view>
-
-          <!-- 注册按钮 -->
-          <button 
-            class="register-button" 
-            :class="{ 'loading': isLoading }"
-            @tap="handleRegister"
-            :disabled="isLoading || !agreedToTerms"
-          >
-            {{ isLoading ? '注册中...' : '立即注册' }}
-          </button>
         </view>
 
         <!-- 登录入口 -->
@@ -146,14 +232,21 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { register } from '@/api/auth'
+import { ref, reactive, computed } from 'vue'
+import { register, sendSmsCode, verifySmsCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
 
+// 步骤控制
+const currentStep = ref(1)
+
 // 响应式数据
 const isLoading = ref(false)
+const isSendingCode = ref(false)
+const isVerifying = ref(false)
+const isCodeSent = ref(false)
+const countdown = ref(0)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const agreedToTerms = ref(false)
@@ -161,10 +254,143 @@ const errorMessage = ref('')
 
 const formData = reactive({
   phonenumber: '',
+  verifyCode: '',
   name: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  identifier: ''
 })
+
+// 计算属性
+const stepSubtitle = computed(() => {
+  const subtitles = {
+    1: '第一步：验证您的手机号',
+    2: '第二步：填写您的基本信息'
+  }
+  return subtitles[currentStep.value] || ''
+})
+
+const maskedPhone = computed(() => {
+  const phone = formData.phonenumber
+  if (phone.length === 11) {
+    return phone.substring(0, 3) + '****' + phone.substring(7)
+  }
+  return phone
+})
+
+// 发送验证码
+const sendCode = async () => {
+  // 验证手机号
+  if (!formData.phonenumber.trim()) {
+    errorMessage.value = '请输入手机号'
+    return
+  }
+  if (!/^1[3-9]\d{9}$/.test(formData.phonenumber)) {
+    errorMessage.value = '请输入正确的手机号'
+    return
+  }
+  
+  if (countdown.value > 0) return
+  
+  errorMessage.value = ''
+  isSendingCode.value = true
+  
+  try {
+    await sendSmsCode(formData.phonenumber)
+    
+    uni.showToast({
+      title: '验证码已发送',
+      icon: 'success'
+    })
+    
+    isCodeSent.value = true
+    startCountdown()
+    
+  } catch (error) {
+    console.error('发送验证码失败:', error)
+    
+    // 解析错误信息
+    let errorMsg = '发送失败，请稍后重试'
+    if (error.message) {
+      try {
+        if (typeof error.message === 'string' && error.message.startsWith('{')) {
+          const parsedError = JSON.parse(error.message)
+          errorMsg = parsedError.msg || parsedError.error || error.message
+        } else if (typeof error.message === 'object' && error.message.msg) {
+          errorMsg = error.message.msg
+        } else {
+          errorMsg = error.message
+        }
+      } catch (parseError) {
+        errorMsg = error.message
+      }
+    }
+    
+    errorMessage.value = errorMsg
+  } finally {
+    isSendingCode.value = false
+  }
+}
+
+// 倒计时
+const startCountdown = () => {
+  countdown.value = 60
+  const timer = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) {
+      clearInterval(timer)
+    }
+  }, 1000)
+}
+
+// 验证验证码
+const verifyCode = async () => {
+  if (formData.verifyCode.length !== 6) {
+    errorMessage.value = '请输入6位验证码'
+    return
+  }
+  
+  errorMessage.value = ''
+  isVerifying.value = true
+  
+  try {
+    await verifySmsCode(formData.phonenumber, formData.verifyCode)
+    
+    uni.showToast({
+      title: '验证成功',
+      icon: 'success'
+    })
+    
+    // 进入下一步
+    setTimeout(() => {
+      currentStep.value = 2
+    }, 500)
+    
+  } catch (error) {
+    console.error('验证码校验失败:', error)
+    
+    // 解析错误信息
+    let errorMsg = '验证码错误'
+    if (error.message) {
+      try {
+        if (typeof error.message === 'string' && error.message.startsWith('{')) {
+          const parsedError = JSON.parse(error.message)
+          errorMsg = parsedError.msg || parsedError.error || error.message
+        } else if (typeof error.message === 'object' && error.message.msg) {
+          errorMsg = error.message.msg
+        } else {
+          errorMsg = error.message
+        }
+      } catch (parseError) {
+        errorMsg = error.message
+      }
+    }
+    
+    errorMessage.value = errorMsg
+  } finally {
+    isVerifying.value = false
+  }
+}
 
 // 切换密码显示
 const togglePassword = () => {
@@ -182,28 +408,23 @@ const toggleAgreement = () => {
 
 // 表单验证
 const validateForm = () => {
-  // 清除之前的错误信息
   errorMessage.value = ''
   
-  // 手机号验证（宽松模式）
-  if (!formData.phonenumber.trim()) {
-    errorMessage.value = '请输入手机号'
-    return false
-  }
-  
-  // 姓名验证
   if (!formData.name.trim()) {
     errorMessage.value = '请输入姓名'
     return false
   }
   
-  // 密码验证（宽松模式）
   if (!formData.password.trim()) {
     errorMessage.value = '请设置密码'
     return false
   }
   
-  // 确认密码验证
+  if (formData.password.length < 6) {
+    errorMessage.value = '密码至少6位'
+    return false
+  }
+  
   if (!formData.confirmPassword.trim()) {
     errorMessage.value = '请确认密码'
     return false
@@ -214,7 +435,6 @@ const validateForm = () => {
     return false
   }
   
-  // 协议验证
   if (!agreedToTerms.value) {
     errorMessage.value = '请先同意用户协议和隐私政策'
     return false
@@ -233,23 +453,35 @@ const handleRegister = async () => {
   errorMessage.value = ''
   
   try {
-    // 调用注册接口
-    const token = await register({
+    // 构建注册数据
+    const registerData = {
       phonenumber: formData.phonenumber,
       password: formData.password,
       name: formData.name
-    })
+    }
+    
+    // 可选字段
+    if (formData.identifier.trim()) {
+      registerData.identifier = formData.identifier.trim()
+    }
+    
+    console.log('注册数据:', registerData)
+    
+    // 调用注册接口
+    const token = await register(registerData)
     
     // 保存token
     uni.setStorageSync('token', token)
     
     // 立即获取用户角色信息
     try {
-      const userInfo = await userStore.checkAuth()
-      console.log('用户角色:', userInfo.role)
+      await userStore.checkAuth()
     } catch (error) {
       console.warn('获取用户信息失败，但不影响注册:', error)
     }
+    
+    // 进入步骤3（成功）
+    currentStep.value = 3
     
     uni.showToast({
       title: '注册成功',
@@ -265,12 +497,31 @@ const handleRegister = async () => {
     }, 1500)
     
   } catch (error) {
-    // 错误处理（400错误如手机号重复已在拦截器处理，这里处理其他情况）
-    if (error.code === 400) {
-      errorMessage.value = error.message || '注册失败，请检查输入信息'
-    } else {
-      errorMessage.value = error.message || '注册失败，请稍后重试'
+    console.error('注册失败:', error)
+    
+    // 解析错误信息
+    let errorMsg = '注册失败，请稍后重试'
+    
+    if (error.message) {
+      try {
+        // 如果 message 是 JSON 字符串，尝试解析
+        if (typeof error.message === 'string' && error.message.startsWith('{')) {
+          const parsedError = JSON.parse(error.message)
+          errorMsg = parsedError.msg || parsedError.error || error.message
+        } else if (typeof error.message === 'object' && error.message.msg) {
+          // 如果 message 已经是对象
+          errorMsg = error.message.msg
+        } else {
+          // 直接使用 message
+          errorMsg = error.message
+        }
+      } catch (parseError) {
+        // 解析失败，使用原始 message
+        errorMsg = error.message
+      }
     }
+    
+    errorMessage.value = errorMsg
   } finally {
     isLoading.value = false
   }
@@ -330,7 +581,7 @@ const goToLogin = () => {
 /* 医院标识区域 */
 .hospital-header {
   text-align: center;
-  margin-bottom: 60rpx;
+  margin-bottom: 40rpx;
 }
 
 .hospital-icon {
@@ -343,11 +594,6 @@ const goToLogin = () => {
   align-items: center;
   justify-content: center;
   box-shadow: 0 8rpx 25rpx rgba(0, 213, 217, 0.3);
-}
-
-.icon-hospital {
-  font-size: 50rpx;
-  color: white;
 }
 
 .hospital-name {
@@ -374,7 +620,7 @@ const goToLogin = () => {
 
 .card-header {
   text-align: center;
-  margin-bottom: 48rpx;
+  margin-bottom: 32rpx;
 }
 
 .card-title {
@@ -386,8 +632,78 @@ const goToLogin = () => {
 }
 
 .card-subtitle {
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: #666;
+}
+
+/* 步骤指示器 */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40rpx;
+  padding: 0 20rpx;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.step.active {
+  opacity: 1;
+}
+
+.step.completed .step-dot {
+  background: #10B981;
+  border-color: #10B981;
+}
+
+.step-dot {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: #E5E7EB;
+  border: 3rpx solid #E5E7EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #9CA3AF;
+  margin-bottom: 8rpx;
+  transition: all 0.3s ease;
+}
+
+.step.active .step-dot {
+  background: $hospital-primary;
+  border-color: $hospital-primary;
+  color: white;
+}
+
+.step-text {
+  font-size: 22rpx;
+  color: #9CA3AF;
+}
+
+.step.active .step-text {
+  color: $hospital-primary;
+  font-weight: 500;
+}
+
+.step-line {
+  width: 60rpx;
+  height: 3rpx;
+  background: #E5E7EB;
+  margin: 0 12rpx 24rpx;
+  transition: all 0.3s ease;
+}
+
+.step-line.active {
+  background: #10B981;
 }
 
 /* 表单区域 */
@@ -395,8 +711,23 @@ const goToLogin = () => {
   margin-bottom: 32rpx;
 }
 
+.step-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .input-group {
-  margin-bottom: 32rpx;
+  margin-bottom: 28rpx;
 }
 
 .input-label {
@@ -404,6 +735,12 @@ const goToLogin = () => {
   font-weight: 500;
   color: #333;
   margin-bottom: 12rpx;
+}
+
+.optional-tag {
+  font-size: 22rpx;
+  color: #9CA3AF;
+  font-weight: 400;
 }
 
 .input-wrapper {
@@ -447,6 +784,115 @@ const goToLogin = () => {
   font-size: 28rpx;
   color: #999;
   margin-left: 16rpx;
+  padding: 10rpx;
+}
+
+/* 验证码相关 */
+.code-wrapper {
+  padding-right: 16rpx;
+}
+
+.code-btn {
+  padding: 12rpx 20rpx;
+  background: $hospital-primary;
+  border-radius: 8rpx;
+  margin-left: 16rpx;
+  white-space: nowrap;
+}
+
+.code-btn text {
+  font-size: 24rpx;
+  color: white;
+}
+
+.code-btn.disabled {
+  background: #E5E7EB;
+}
+
+.code-btn.disabled text {
+  color: #9CA3AF;
+}
+
+/* 已验证手机号 */
+.verified-phone {
+  display: flex;
+  align-items: center;
+  background: #ECFDF5;
+  border: 1rpx solid #A7F3D0;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 28rpx;
+}
+
+.phone-text {
+  font-size: 28rpx;
+  color: #065F46;
+  margin-left: 12rpx;
+  flex: 1;
+}
+
+.verified-tag {
+  font-size: 22rpx;
+  color: #10B981;
+  background: #D1FAE5;
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+/* 按钮样式 */
+.primary-button {
+  width: 100%;
+  height: 88rpx;
+  background: linear-gradient(135deg, $hospital-primary 0%, $hospital-primary-light 100%);
+  border: none;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 8rpx 25rpx rgba(0, 213, 217, 0.3);
+  transition: all 0.3s ease;
+  margin-top: 16rpx;
+}
+
+.primary-button:active {
+  transform: translateY(-2rpx);
+  box-shadow: 0 12rpx 35rpx rgba(0, 213, 217, 0.4);
+}
+
+.primary-button.loading {
+  animation: pulse 1.5s ease-in-out infinite;
+  transform: none;
+}
+
+.primary-button[disabled] {
+  opacity: 0.5;
+  transform: none;
+  background: #CCC;
+  box-shadow: none;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* 返回上一步 */
+.back-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 24rpx;
+  padding: 16rpx;
+}
+
+.back-step text {
+  font-size: 26rpx;
+  color: #666;
+  margin-left: 8rpx;
 }
 
 /* 错误提示 */
@@ -455,7 +901,7 @@ const goToLogin = () => {
   border: 1rpx solid #FEB2B2;
   border-radius: 12rpx;
   padding: 20rpx;
-  margin-bottom: 24rpx;
+  margin-top: 24rpx;
 }
 
 .error-text {
@@ -465,7 +911,8 @@ const goToLogin = () => {
 
 /* 用户协议 */
 .agreement-section {
-  margin-bottom: 32rpx;
+  margin-bottom: 24rpx;
+  margin-top: 8rpx;
 }
 
 .checkbox-wrapper {
@@ -494,47 +941,6 @@ const goToLogin = () => {
 .agreement-link {
   color: $hospital-primary;
   text-decoration: underline;
-}
-
-/* 注册按钮 */
-.register-button {
-  width: 100%;
-  height: 88rpx;
-  background: linear-gradient(135deg, $hospital-primary 0%, $hospital-primary-light 100%);
-  border: none;
-  border-radius: 12rpx;
-  font-size: 30rpx;
-  font-weight: 600;
-  color: white;
-  box-shadow: 0 8rpx 25rpx rgba(0, 213, 217, 0.3);
-  transition: all 0.3s ease;
-}
-
-.register-button:active {
-  transform: translateY(-2rpx);
-  box-shadow: 0 12rpx 35rpx rgba(0, 213, 217, 0.4);
-}
-
-/* Loading动画 */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.register-button.loading {
-  animation: pulse 1.5s ease-in-out infinite;
-  transform: none;
-}
-
-.register-button[disabled] {
-  opacity: 0.5;
-  transform: none;
-  background: #CCC;
-  box-shadow: none;
 }
 
 /* 登录区域 */
@@ -589,7 +995,7 @@ const goToLogin = () => {
   }
   
   .hospital-header {
-    margin-bottom: 40rpx;
+    margin-bottom: 30rpx;
   }
   
   .register-card {

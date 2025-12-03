@@ -222,7 +222,11 @@ const showQRCode = () => {
 }
 
 onMounted(() => {
-  console.log('📱 首页加载，用户信息:', userInfo.value)
+  console.log('📱 首页加载，用户信息:', {
+    name: userInfo.value?.name,
+    phonenumber: userInfo.value?.phonenumber,
+    avatar: userInfo.value?.avatar
+  })
 })
 
 // 每次页面显示时刷新用户信息
