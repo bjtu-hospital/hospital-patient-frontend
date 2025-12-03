@@ -146,10 +146,11 @@ export const addPatient = (data) => {
   }
   
   // 映射前端字段到后端字段
+  // 后端 swagger 要求请求体必须包含 `name` 与 `id_card` 等字段
   const requestData = {
-    real_name: data.name,           // 姓名
-    id_card: data.idCard,           // 身份证号
-    phone_number: data.phone,       // 手机号（可能为空）
+    name: data.name,               // 后端期望的姓名字段
+    id_card: data.idCard,          // 身份证号
+    phone_number: data.phone || null, // 手机号（可能为空，传 null 更明确）
     identifier: data.identifier || null,  // 学号/工号（可能为空）
     gender: data.gender || '未知',
     birth_date: data.birthDate || null,

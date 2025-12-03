@@ -300,67 +300,68 @@ const deletePatient = (patient) => {
 
 // 保存就诊人
 const savePatient = async () => {
-  // 表单验证
-  if (!formData.name.trim()) {
-    uni.showToast({ title: '请输入姓名', icon: 'none' })
-    return
-  }
-  if (!formData.idCard.trim()) {
-    uni.showToast({ title: '请输入身份证号', icon: 'none' })
-    return
-  }
-  // 简单验证身份证号格式
-  if (!/^\d{17}[\dXx]$/.test(formData.idCard)) {
-    uni.showToast({ title: '身份证号格式不正确', icon: 'none' })
-    return
-  }
-  // 验证手机号格式（如果填写了手机号）
-  if (formData.phone.trim() && !/^1[3-9]\d{9}$/.test(formData.phone)) {
-    uni.showToast({ title: '手机号格式不正确', icon: 'none' })
-    return
+  // 编辑模式：仅更新关系/备注（后端只允许 relation_type 和 remark）
+  if (editingPatient.value) {
+    if (!formData.relation) {
+      uni.showToast({ title: '请选择关系', icon: 'none' })
+      return
+    }
+  } else {
+    // 添加模式：表单验证
+    if (!formData.name.trim()) {
+      uni.showToast({ title: '请输入姓名', icon: 'none' })
+      return
+    }
+    if (!formData.idCard.trim()) {
+      uni.showToast({ title: '请输入身份证号', icon: 'none' })
+      return
+    }
+    // 简单验证身份证号格式
+    if (!/^\d{17}[\dXx]$/.test(formData.idCard)) {
+      uni.showToast({ title: '身份证号格式不正确', icon: 'none' })
+      return
+    }
+    // 如果填写手机号则校验
+    if (formData.phone.trim() && !/^1[3-9]\d{9}$/.test(formData.phone)) {
+      uni.showToast({ title: '手机号格式不正确', icon: 'none' })
+      return
+    }
   }
 
   try {
     uni.showLoading({ title: editingPatient.value ? '保存中...' : '添加中...' })
-    
-    // 构建请求数据，将relation映射为relationType
-    const requestData = {
-      name: formData.name,
-      idCard: formData.idCard,
-      phone: formData.phone,
-      relationType: formData.relation,  // 映射字段名
-      isDefault: formData.isDefault
-    }
-    
+
     if (editingPatient.value) {
-      // 编辑现有就诊人
-      console.log('尝试更新就诊人，relationId:', editingPatient.value.id, 'patientId:', editingPatient.value.patientId, 'requestData:', requestData)
-      // 后端接口要求的 patient_id 是 related_patient_id（patient.patient_id），
-      // 前端映射为 editingPatient.value.patientId
+      // 仅发送后端允许的字段
+      const requestData = {}
+      if (formData.relation) requestData.relation_type = formData.relation
+      if (formData.remark !== undefined) requestData.remark = formData.remark
+
+      console.log('更新就诊人请求，patientId:', editingPatient.value.patientId, 'data:', requestData)
       await updatePatientApi(editingPatient.value.patientId, requestData)
       uni.showToast({ title: '修改成功', icon: 'success' })
     } else {
-      // 添加新就诊人
+      // 添加新就诊人，按后端要求发送字段（api 会映射）
+      const requestData = {
+        name: formData.name,
+        idCard: formData.idCard,
+        phone: formData.phone,
+        relationType: formData.relation,
+        isDefault: formData.isDefault
+      }
       console.log('添加就诊人数据:', requestData)
       await addPatientApi(requestData)
       uni.showToast({ title: '添加成功', icon: 'success' })
     }
-    
+
     uni.hideLoading()
     showAddModal.value = false
-    
-    // 重新加载数据
     await loadPatients()
-    
   } catch (error) {
     console.error('保存就诊人失败:', error)
     uni.hideLoading()
-    uni.showToast({
-      title: error.message || '操作失败',
-      icon: 'none'
-    })
-  } finally {
-    // 确保总是隐藏加载提示
+    const msg = parseApiError(error)
+    uni.showToast({ title: msg || '操作失败', icon: 'none' })
   }
 }
 
