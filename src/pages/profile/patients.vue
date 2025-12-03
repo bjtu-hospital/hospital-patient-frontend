@@ -175,6 +175,33 @@ const maskIdCard = (idCard) => {
   return idCard.replace(/(\d{6})\d{8}(\d{4})/, '$1****$2')
 }
 
+// 解析后端错误信息为友好字符串
+const parseApiError = (error) => {
+  if (!error) return '操作失败'
+  let msg = ''
+  if (error.message) {
+    try {
+      if (typeof error.message === 'string' && error.message.startsWith('{')) {
+        const parsed = JSON.parse(error.message)
+        msg = parsed.msg || parsed.error || error.message
+      } else if (typeof error.message === 'object' && error.message.msg) {
+        msg = error.message.msg
+      } else {
+        msg = error.message
+      }
+    } catch (e) {
+      msg = error.message
+    }
+  } else if (typeof error === 'string') {
+    msg = error
+  } else if (error.msg) {
+    msg = error.msg
+  } else {
+    msg = '操作失败'
+  }
+  return msg
+}
+
 // 加载就诊人列表
 const loadPatients = async () => {
   try {
@@ -246,7 +273,10 @@ const deletePatient = (patient) => {
       if (res.confirm) {
         try {
           uni.showLoading({ title: '删除中...' })
-          await deletePatientApi(patient.id)
+          console.log('尝试删除就诊人，relationId:', patient.id, 'patientId:', patient.patientId)
+          // 后端 API 要求的 patient_id 是被添加的患者 ID（related_patient_id），
+          // 前端列表中映射为 patient.patientId
+          await deletePatientApi(patient.patientId)
           uni.hideLoading()
           uni.showToast({
             title: '删除成功',
@@ -256,8 +286,10 @@ const deletePatient = (patient) => {
           loadPatients()
         } catch (error) {
           uni.hideLoading()
+          const msg = parseApiError(error)
+          console.error('删除就诊人失败:', error)
           uni.showToast({
-            title: error.message || '删除失败',
+            title: msg || '删除失败',
             icon: 'none'
           })
         }
@@ -302,7 +334,10 @@ const savePatient = async () => {
     
     if (editingPatient.value) {
       // 编辑现有就诊人
-      await updatePatientApi(editingPatient.value.id, requestData)
+      console.log('尝试更新就诊人，relationId:', editingPatient.value.id, 'patientId:', editingPatient.value.patientId, 'requestData:', requestData)
+      // 后端接口要求的 patient_id 是 related_patient_id（patient.patient_id），
+      // 前端映射为 editingPatient.value.patientId
+      await updatePatientApi(editingPatient.value.patientId, requestData)
       uni.showToast({ title: '修改成功', icon: 'success' })
     } else {
       // 添加新就诊人
