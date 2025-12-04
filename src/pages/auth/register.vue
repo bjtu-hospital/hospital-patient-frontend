@@ -162,20 +162,7 @@
               </view>
             </view>
 
-            <!-- 学号/工号（可选） -->
-            <view class="input-group">
-              <view class="input-label">学号/工号 <text class="optional-tag">选填</text></view>
-              <view class="input-wrapper">
-                <uni-icons type="wallet" size="18" color="#00D5D9" class="input-icon"></uni-icons>
-                <input 
-                  class="input-field" 
-                  type="text" 
-                  placeholder="请输入学号或工号"
-                  v-model="formData.identifier"
-                  placeholder-class="input-placeholder"
-                />
-              </view>
-            </view>
+            <!-- 学号/工号（已移除） -->
 
             <!-- 可选：邮箱 -->
             <view class="input-group">
@@ -192,16 +179,7 @@
               </view>
             </view>
 
-            <!-- 可选：患者类型 -->
-            <view class="input-group">
-              <view class="input-label">患者类型 <text class="optional-tag">选填</text></view>
-              <view class="input-wrapper">
-                <uni-icons type="staff" size="18" color="#00D5D9" class="input-icon"></uni-icons>
-                <picker mode="selector" :range="patientTypeOptions.map(o => o.label)" :value="patientTypeIndex" @change="onPatientTypeChange">
-                  <view class="input-field">{{ patientTypeIndex >= 0 ? patientTypeOptions[patientTypeIndex].label : '请选择患者类型（学生/教师/职工）' }}</view>
-                </picker>
-              </view>
-            </view>
+            <!-- 患者类型（已移除） -->
 
             <!-- 可选：性别 -->
             <view class="input-group">
@@ -306,10 +284,8 @@ const formData = reactive({
   name: '',
   password: '',
   confirmPassword: '',
-  identifier: '',
   // 可选扩展字段（如需要，可在 UI 中添加输入项）
   email: '',
-  patient_type: '',
   gender: '',
   birth_date: ''
 })
@@ -323,13 +299,7 @@ const stepSubtitle = computed(() => {
   return subtitles[currentStep.value] || ''
 })
 
-// 下拉/选择数据（用于第二步可选字段）
-const patientTypeOptions = [
-  { label: '学生', value: 'student' },
-  { label: '教师', value: 'teacher' },
-  { label: '职工', value: 'staff' }
-]
-const patientTypeIndex = ref(-1)
+// (患者类型已移除，保留性别选择)
 
 const genderOptions = [
   { label: '男', value: '男' },
@@ -337,12 +307,6 @@ const genderOptions = [
   { label: '未知', value: '未知' }
 ]
 const genderIndex = ref(-1)
-
-const onPatientTypeChange = (e) => {
-  const idx = Number(e?.detail?.value)
-  patientTypeIndex.value = idx
-  if (idx >= 0) formData.patient_type = patientTypeOptions[idx].value
-}
 
 const onGenderChange = (e) => {
   const idx = Number(e?.detail?.value)
@@ -558,10 +522,6 @@ const validateForm = () => {
     }
   }
 
-  if (formData.patient_type && !['student', 'teacher', 'staff'].includes(formData.patient_type)) {
-    errorMessage.value = '请选择有效的患者类型'
-    return false
-  }
 
   if (formData.gender && !['男', '女', '未知'].includes(formData.gender)) {
     errorMessage.value = '请选择有效的性别'
@@ -594,14 +554,8 @@ const handleRegister = async () => {
     }
     
     // 可选字段
-    if (formData.identifier && formData.identifier.trim()) {
-      registerData.identifier = formData.identifier.trim()
-    }
     if (formData.email && formData.email.trim()) {
       registerData.email = formData.email.trim()
-    }
-    if (formData.patient_type && formData.patient_type.trim()) {
-      registerData.patient_type = formData.patient_type.trim()
     }
     if (formData.gender && formData.gender.trim()) {
       registerData.gender = formData.gender.trim()

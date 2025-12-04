@@ -144,6 +144,7 @@ const userStore = useUserStore()
 
 // 用户信息（从 Store 获取）
 const userInfo = computed(() => {
+  console.log(userStore)  
   return {
     name: userStore.userInfo?.realName || userStore.userName,
     studentId: userStore.userInfo?.studentId || userStore.userInfo?.phonenumber,
