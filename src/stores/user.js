@@ -101,12 +101,16 @@ export const useUserStore = defineStore('user', () => {
   const restoreAuth = () => {
     const savedToken = uni.getStorageSync('token')
     const savedUserInfo = uni.getStorageSync('userInfo')
-    
-    if (savedToken && savedUserInfo) {
+
+    if (savedToken) {
       token.value = savedToken
-      userInfo.value = savedUserInfo
+      // 如果本地存在 userInfo，则恢复；否则保留为 null，后续会通过 checkAuth 补全
+      if (savedUserInfo) {
+        userInfo.value = savedUserInfo
+      }
       return true
     }
+
     return false
   }
   
@@ -121,6 +125,22 @@ export const useUserStore = defineStore('user', () => {
       // 更新用户信息
       userInfo.value = userRoleInfo
       setUserInfo(userRoleInfo)
+      
+      // 🆕 尝试获取完整用户信息（不阻断验证流程）
+      try {
+        const { getUserInfo } = await import('@/api/user')
+        const fullUserInfo = await getUserInfo()
+        console.log('📋 验证登录态时获取完整用户信息成功:', fullUserInfo)
+        
+        // 合并完整信息
+        userInfo.value = {
+          ...userInfo.value,
+          ...fullUserInfo
+        }
+        setUserInfo(userInfo.value)
+      } catch (profileError) {
+        console.warn('⚠️ 获取完整用户信息失败（不影响验证）:', profileError)
+      }
       
       return userRoleInfo
     } catch (error) {

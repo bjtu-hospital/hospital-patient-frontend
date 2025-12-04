@@ -144,21 +144,33 @@ const userStore = useUserStore()
 
 // 用户信息（从 Store 获取）
 const userInfo = computed(() => {
-  console.log(userStore)  
+  if (!userStore.isLoggedIn) {
+    return {
+      name: '',
+      studentId: '',
+      avatar: ''
+    }
+  }
+  
+  // 从 store 中获取完整用户信息
+  const ui = userStore.userInfo || {}
   return {
-    name: userStore.userInfo?.realName || userStore.userName,
-    studentId: userStore.userInfo?.studentId || userStore.userInfo?.phonenumber,
-    avatar: userStore.userInfo?.avatar
+    name: ui.realName || ui.name || '',
+    studentId: ui.studentId || ui.phonenumber || ui.identifier || '',
+    avatar: ui.avatar || ''
   }
 })
 
 // 用户头像首字
 const userAvatar = computed(() => {
-  return userInfo.value.name?.charAt(0) || '用'
+  if (userInfo.value.name) {
+    return userInfo.value.name.charAt(0)
+  }
+  return '用'
 })
 
-// 是否已登录
-const isLoggedIn = computed(() => userStore.isLoggedIn)
+// 是否已登录（直接使用 store 的响应式属性）
+const isLoggedIn = computed(() => !!userStore.isLoggedIn)
 
 // 页面跳转
 const navigateTo = (url) => {
@@ -225,8 +237,9 @@ const showQRCode = () => {
 onMounted(() => {
   console.log('📱 首页加载，用户信息:', {
     name: userInfo.value?.name,
-    phonenumber: userInfo.value?.phonenumber,
-    avatar: userInfo.value?.avatar
+    phonenumber: userInfo.value?.studentId,
+    avatar: userInfo.value?.avatar,
+    isLoggedIn: isLoggedIn.value
   })
 })
 
