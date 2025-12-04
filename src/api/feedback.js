@@ -18,7 +18,10 @@ const getTypeText = (type) => {
 }
 
 // ==================== 反馈相关 ====================
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 /**
  * 提交反馈到后端数据库
  * @param {Object} data - 反馈信息 { type, content, contactPhone, contactEmail }
@@ -50,11 +53,14 @@ export const submitFeedback = (data) => {
   return request.post('/common/feedback', apiData).then(response => {
     console.log('📥 [反馈API] 提交原始响应:', response)
     
+<<<<<<< Updated upstream
     // 🚨 关键修复：处理后端返回的多种格式
     // 格式1: { feedback_id: 5, type: 'bug', ... } (直接返回对象)
     // 格式2: { code: 0, message: { ... } } (标准格式)
     // 格式3: 直接返回插入的数据对象
     
+=======
+>>>>>>> Stashed changes
     if (response && typeof response === 'object') {
       // 情况1：后端直接返回插入的数据（有feedback_id字段）
       if (response.feedback_id) {
@@ -145,7 +151,10 @@ export const submitFeedback = (data) => {
  * @returns {Promise} 返回反馈列表 { code: 0, message: [...] }
  */
 export const getFeedbackHistory = (params = {}) => {
+<<<<<<< Updated upstream
   // ⚠️ 重要：与提交接口保持一致
+=======
+>>>>>>> Stashed changes
   const apiParams = {
     page: params.page || 1,
     pageSize: params.pageSize || 20

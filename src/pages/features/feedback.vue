@@ -75,8 +75,8 @@
     <view class="submit-section">
       <button 
         class="submit-btn" 
-        :class="{ disabled: !canSubmit }"
-        :disabled="!canSubmit"
+        :class="{ disabled: !canSubmit || isSubmitting }"
+        :disabled="!canSubmit || isSubmitting"
         @tap="submitFeedback"
       >
         {{ isSubmitting ? '提交中...' : '提交反馈' }}
@@ -84,34 +84,64 @@
     </view>
 
     <!-- 历史反馈 -->
-    <view class="history-section" v-if="feedbackHistory.length > 0">
-      <view class="section-title">
-        <text class="title-text">我的反馈记录</text>
-      </view>
-      <view class="history-list">
-        <view 
-          class="history-item" 
-          v-for="item in feedbackHistory" 
-          :key="item.id"
-          @tap="viewFeedback(item)"
-        >
-          <view class="history-content">
-            <text class="history-title">{{ item.type }}</text>
-            <text class="history-desc">{{ item.content }}</text>
-            <text class="history-date">{{ item.submitDate }}</text>
-          </view>
-          <view class="history-status" :class="item.status">
-            <text class="status-text">{{ getStatusText(item.status) }}</text>
+    <view v-if="!isLoading">
+      <view class="history-section" v-if="feedbackHistory.length > 0">
+        <view class="section-title">
+          <text class="title-text">我的反馈记录</text>
+          <text class="title-desc" v-if="feedbackHistory.length > 0">共{{ feedbackHistory.length }}条记录</text>
+        </view>
+        <view class="history-list">
+          <view 
+            class="history-item" 
+            v-for="item in feedbackHistory" 
+            :key="item.id"
+            @tap="viewFeedback(item)"
+          >
+            <view class="history-content">
+              <text class="history-title">{{ item.typeText || item.type }}</text>
+              <text class="history-desc">{{ item.content }}</text>
+              <text class="history-date">{{ item.submitDate || item.createdAt?.split('T')[0] }}</text>
+            </view>
+            <view class="history-status" :class="item.status">
+              <text class="status-text">{{ getStatusText(item.status) }}</text>
+            </view>
           </view>
         </view>
       </view>
+
+      <!-- 空状态 -->
+      <view class="empty-section" v-else-if="hasLoaded && feedbackHistory.length === 0">
+        <view class="empty-icon">📝</view>
+        <text class="empty-text">暂无反馈记录</text>
+        <text class="empty-desc">提交反馈后，您的记录将在这里显示</text>
+      </view>
+    </view>
+
+    <!-- 加载状态 -->
+    <view v-if="isLoading" class="loading-section">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <!-- 错误提示 -->
+    <view v-if="showError" class="error-section">
+      <text class="error-icon">⚠️</text>
+      <text class="error-text">{{ errorMessage }}</text>
+      <button class="retry-btn" @tap="loadFeedbackHistory">重试</button>
     </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { MessageCircle, Phone, Mail, Bug, Lightbulb, AlertCircle, Star } from 'lucide-vue-next'
+import { Phone, Mail, Bug, Lightbulb, AlertCircle, Star } from 'lucide-vue-next'
+
+// 导入API函数
+import { 
+  submitFeedback as apiSubmitFeedback, 
+  getFeedbackHistory,
+  getTypeText 
+} from '@/api/feedback'
 
 // 反馈类型
 const feedbackTypes = ref([
@@ -127,24 +157,13 @@ const feedbackContent = ref('')
 const contactPhone = ref('')
 const contactEmail = ref('')
 const isSubmitting = ref(false)
+const isLoading = ref(false)
+const hasLoaded = ref(false)
+const showError = ref(false)
+const errorMessage = ref('')
 
-// 历史反馈记录
-const feedbackHistory = ref([
-  {
-    id: 1,
-    type: '功能建议',
-    content: '希望能增加预约提醒功能',
-    submitDate: '2024-10-25',
-    status: 'replied'
-  },
-  {
-    id: 2,
-    type: '功能异常',
-    content: '登录时偶尔出现卡顿',
-    submitDate: '2024-10-20',
-    status: 'processing'
-  }
-])
+// 历史反馈记录 - 初始化为空数组
+const feedbackHistory = ref([])
 
 // 是否可提交
 const canSubmit = computed(() => {
@@ -167,7 +186,71 @@ const getStatusText = (status) => {
   return statusMap[status] || status
 }
 
-// 提交反馈
+// 从后端加载历史反馈
+const loadFeedbackHistory = async () => {
+  if (isLoading.value) return
+  
+  isLoading.value = true
+  showError.value = false
+  errorMessage.value = ''
+  
+  try {
+    console.log('🔄 正在从后端加载历史反馈...')
+    
+    const response = await getFeedbackHistory()
+    console.log('📥 后端响应:', response)
+    
+    if (response.code === 0) {
+      // 使用真实数据
+      feedbackHistory.value = response.message.map(item => ({
+        ...item,
+        typeText: getTypeText(item.type) || item.type
+      }))
+      
+      console.log('✅ 历史反馈加载成功，数量:', feedbackHistory.value.length)
+      
+      // 标记已加载完成
+      hasLoaded.value = true
+      
+    } else if (response.code === 105) {
+      // Token无效
+      console.warn('⚠️ Token无效')
+      showError.value = true
+      errorMessage.value = '登录状态已过期，请重新登录'
+      
+      uni.showModal({
+        title: '登录已过期',
+        content: '您的登录状态已失效，请重新登录',
+        confirmText: '去登录',
+        success: (res) => {
+          if (res.confirm) {
+            uni.removeStorageSync('token')
+            uni.removeStorageSync('userInfo')
+            uni.navigateTo({
+              url: '/pages/auth/login'
+            })
+          }
+        }
+      })
+      
+    } else {
+      // 其他错误
+      console.warn('⚠️ 加载失败，错误码:', response.code)
+      showError.value = true
+      errorMessage.value = response.message?.error || '加载失败，请重试'
+    }
+    
+  } catch (error) {
+    console.error('❌ 加载历史反馈异常:', error)
+    showError.value = true
+    errorMessage.value = '网络错误，请检查连接'
+    
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 提交反馈到后端
 const submitFeedback = async () => {
   if (!canSubmit.value) {
     uni.showToast({
@@ -177,39 +260,75 @@ const submitFeedback = async () => {
     return
   }
 
+  // 内容长度验证
+  if (feedbackContent.value.trim().length < 10) {
+    uni.showToast({
+      title: '反馈内容至少10个字',
+      icon: 'none'
+    })
+    return
+  }
+
   isSubmitting.value = true
 
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    console.log('📤 准备提交反馈到后端...')
     
-    // 添加到历史记录
-    const newFeedback = {
-      id: Date.now(),
-      type: feedbackTypes.value.find(t => t.value === selectedType.value)?.label,
-      content: feedbackContent.value,
-      submitDate: new Date().toISOString().split('T')[0],
-      status: 'pending'
+    // 调用真实后端API
+    const response = await apiSubmitFeedback({
+      type: selectedType.value,
+      content: feedbackContent.value.trim(),
+      contactPhone: contactPhone.value.trim(),
+      contactEmail: contactEmail.value.trim()
+    })
+    
+    console.log('📥 后端提交响应:', response)
+    
+    if (response.code === 0) {
+      // 提交成功，重新加载历史数据
+      await loadFeedbackHistory()
+      
+      // 重置表单
+      selectedType.value = ''
+      feedbackContent.value = ''
+      contactPhone.value = ''
+      contactEmail.value = ''
+      
+      uni.showToast({
+        title: '提交成功！',
+        icon: 'success',
+        duration: 2000
+      })
+    } else if (response.code === 105) {
+      // Token无效
+      uni.showModal({
+        title: '登录已过期',
+        content: '您的登录状态已失效，请重新登录',
+        confirmText: '去登录',
+        success: (res) => {
+          if (res.confirm) {
+            uni.removeStorageSync('token')
+            uni.removeStorageSync('userInfo')
+            uni.navigateTo({
+              url: '/pages/auth/login'
+            })
+          }
+        }
+      })
+    } else {
+      uni.showToast({
+        title: response.message?.error || '提交失败',
+        icon: 'none'
+      })
     }
     
-    feedbackHistory.value.unshift(newFeedback)
-    
-    // 重置表单
-    selectedType.value = ''
-    feedbackContent.value = ''
-    contactPhone.value = ''
-    contactEmail.value = ''
-    
-    uni.showToast({
-      title: '提交成功',
-      icon: 'success'
-    })
-    
   } catch (error) {
+    console.error('❌ 提交反馈网络异常:', error)
     uni.showToast({
-      title: '提交失败，请重试',
+      title: '网络错误，请检查连接后重试',
       icon: 'none'
     })
+    
   } finally {
     isSubmitting.value = false
   }
@@ -217,16 +336,35 @@ const submitFeedback = async () => {
 
 // 查看反馈详情
 const viewFeedback = (item) => {
+  const content = `类型：${item.typeText || item.type}
+内容：${item.fullContent || item.content}
+状态：${getStatusText(item.status)}
+提交日期：${item.submitDate || item.createdAt?.split('T')[0] || '未知'}${item.contactPhone ? `\n联系电话：${item.contactPhone}` : ''}${item.contactEmail ? `\n邮箱：${item.contactEmail}` : ''}`
+  
   uni.showModal({
     title: '反馈详情',
-    content: `类型：${item.type}\n内容：${item.content}\n状态：${getStatusText(item.status)}`,
+    content: content,
     showCancel: false,
     confirmText: '知道了'
   })
 }
 
 onMounted(() => {
-  console.log('意见反馈页面加载')
+  console.log('🚀 意见反馈页面加载')
+  
+  // 检查token
+  const token = uni.getStorageSync('token')
+  console.log('🔑 Token状态:', token ? '存在' : '不存在')
+  
+  // 如果用户已登录，加载真实数据
+  if (token) {
+    loadFeedbackHistory()
+  } else {
+    // 用户未登录，直接显示空状态
+    hasLoaded.value = true
+    showError.value = true
+    errorMessage.value = '请先登录查看反馈记录'
+  }
 })
 </script>
 
@@ -423,6 +561,7 @@ onMounted(() => {
   background: white;
   border-radius: 12rpx;
   padding: 24rpx;
+  margin-top: 24rpx;
   border: 1rpx solid #e2e8f0;
   box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
 }
@@ -493,5 +632,97 @@ onMounted(() => {
 .history-status.closed {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+/* 空状态 */
+.empty-section {
+  background: white;
+  border-radius: 12rpx;
+  padding: 60rpx 24rpx;
+  margin-top: 24rpx;
+  text-align: center;
+  border: 1rpx solid #e2e8f0;
+}
+
+.empty-icon {
+  font-size: 60rpx;
+  margin-bottom: 20rpx;
+  display: block;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #0f172a;
+  display: block;
+  margin-bottom: 12rpx;
+  font-weight: 500;
+}
+
+.empty-desc {
+  font-size: 22rpx;
+  color: #64748b;
+  display: block;
+}
+
+/* 加载状态 */
+.loading-section {
+  background: white;
+  border-radius: 12rpx;
+  padding: 60rpx 24rpx;
+  margin-top: 24rpx;
+  text-align: center;
+  border: 1rpx solid #e2e8f0;
+}
+
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid #00BFCC;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20rpx;
+}
+
+.loading-text {
+  font-size: 24rpx;
+  color: #64748b;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 错误提示 */
+.error-section {
+  background: #fef2f2;
+  border-radius: 12rpx;
+  padding: 40rpx 24rpx;
+  margin-top: 24rpx;
+  text-align: center;
+  border: 1rpx solid #fecaca;
+}
+
+.error-icon {
+  font-size: 48rpx;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.error-text {
+  font-size: 26rpx;
+  color: #dc2626;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.retry-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 8rpx;
+  padding: 16rpx 32rpx;
+  font-size: 26rpx;
+  min-width: 200rpx;
 }
 </style>
