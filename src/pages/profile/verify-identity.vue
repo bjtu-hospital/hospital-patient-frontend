@@ -263,13 +263,18 @@ onMounted(() => {
 }
 
 .item-input {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-box-sizing: border-box;
   height: 88rpx;
   background: #F8F8F8;
   border-radius: 16rpx;
   padding: 0 24rpx;
   font-size: 28rpx;
   color: #333;
+  overflow: hidden;
 }
 
 .item-input[disabled] {
