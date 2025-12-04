@@ -96,15 +96,21 @@
           @tap="viewFeedback(item)"
         >
           <view class="history-content">
-            <text class="history-title">{{ item.type }}</text>
+            <text class="history-title">{{ getTypeLabel(item.type) }}</text>
             <text class="history-desc">{{ item.content }}</text>
-            <text class="history-date">{{ item.submitDate }}</text>
+            <text class="history-date">{{ formatDate(item.submitDate || item.createdAt || item.created_at) }}</text>
           </view>
-          <view class="history-status" :class="item.status">
-            <text class="status-text">{{ getStatusText(item.status) }}</text>
+          <view class="history-status" :class="item.status || 'pending'">
+            <text class="status-text">{{ getStatusText(item.status || 'pending') }}</text>
           </view>
         </view>
       </view>
+    </view>
+    
+    <!-- 空状态提示 -->
+    <view class="empty-state" v-else-if="!isLoadingHistory">
+      <text class="empty-text">暂无反馈记录</text>
+      <text class="empty-desc">提交反馈后将在这里显示</text>
     </view>
   </view>
 </template>
@@ -112,6 +118,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { MessageCircle, Phone, Mail, Bug, Lightbulb, AlertCircle, Star } from 'lucide-vue-next'
+import { getFeedbackList, submitFeedback as submitFeedbackApi, getFeedbackDetail } from '@/api/feedback'
 
 // 反馈类型
 const feedbackTypes = ref([
@@ -129,31 +136,23 @@ const contactEmail = ref('')
 const isSubmitting = ref(false)
 
 // 历史反馈记录
-const feedbackHistory = ref([
-  {
-    id: 1,
-    type: '功能建议',
-    content: '希望能增加预约提醒功能',
-    submitDate: '2024-10-25',
-    status: 'replied'
-  },
-  {
-    id: 2,
-    type: '功能异常',
-    content: '登录时偶尔出现卡顿',
-    submitDate: '2024-10-20',
-    status: 'processing'
-  }
-])
+const feedbackHistory = ref([])
+const isLoadingHistory = ref(false)
 
 // 是否可提交
 const canSubmit = computed(() => {
-  return selectedType.value && feedbackContent.value.trim().length >= 10
+  return selectedType.value && feedbackContent.value.trim().length >= 10 && !isSubmitting.value
 })
 
 // 选择反馈类型
 const selectType = (type) => {
   selectedType.value = type
+}
+
+// 获取类型标签文本
+const getTypeLabel = (typeValue) => {
+  const type = feedbackTypes.value.find(t => t.value === typeValue)
+  return type ? type.label : typeValue
 }
 
 // 获取状态文本
@@ -167,11 +166,56 @@ const getStatusText = (status) => {
   return statusMap[status] || status
 }
 
+/**
+ * 加载历史反馈
+ */
+const loadFeedbackHistory = async () => {
+  try {
+    isLoadingHistory.value = true
+    const response = await getFeedbackList()
+    console.log('📋 获取反馈列表成功:', response)
+    
+    // 后端返回的数据结构可能是 { code: 0, message: [] } 或者直接是数组
+    if (Array.isArray(response)) {
+      feedbackHistory.value = response
+    } else if (response.message && Array.isArray(response.message)) {
+      feedbackHistory.value = response.message
+    } else {
+      feedbackHistory.value = []
+    }
+  } catch (error) {
+    console.error('❌ 获取反馈列表失败:', error)
+    // 不显示错误提示，静默失败
+    feedbackHistory.value = []
+  } finally {
+    isLoadingHistory.value = false
+  }
+}
+
 // 提交反馈
 const submitFeedback = async () => {
   if (!canSubmit.value) {
     uni.showToast({
-      title: '请选择类型并填写详细描述',
+      title: '请选择类型并填写详细描述（至少10字）',
+      icon: 'none',
+      duration: 2000
+    })
+    return
+  }
+
+  // 邮箱格式验证（如果填写了邮箱）
+  if (contactEmail.value && !isValidEmail(contactEmail.value)) {
+    uni.showToast({
+      title: '邮箱格式不正确',
+      icon: 'none'
+    })
+    return
+  }
+
+  // 手机号格式验证（如果填写了手机号）
+  if (contactPhone.value && !isValidPhone(contactPhone.value)) {
+    uni.showToast({
+      title: '手机号格式不正确',
       icon: 'none'
     })
     return
@@ -180,19 +224,29 @@ const submitFeedback = async () => {
   isSubmitting.value = true
 
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // 添加到历史记录
-    const newFeedback = {
-      id: Date.now(),
-      type: feedbackTypes.value.find(t => t.value === selectedType.value)?.label,
-      content: feedbackContent.value,
-      submitDate: new Date().toISOString().split('T')[0],
-      status: 'pending'
+    const feedbackData = {
+      type: selectedType.value,
+      content: feedbackContent.value.trim()
     }
     
-    feedbackHistory.value.unshift(newFeedback)
+    // 添加可选的联系方式
+    if (contactPhone.value) {
+      feedbackData.contactPhone = contactPhone.value
+    }
+    if (contactEmail.value) {
+      feedbackData.contactEmail = contactEmail.value
+    }
+    
+    console.log('📤 提交反馈数据:', feedbackData)
+    
+    const response = await submitFeedbackApi(feedbackData)
+    console.log('✅ 提交反馈成功:', response)
+    
+    uni.showToast({
+      title: '提交成功',
+      icon: 'success',
+      duration: 2000
+    })
     
     // 重置表单
     selectedType.value = ''
@@ -200,15 +254,17 @@ const submitFeedback = async () => {
     contactPhone.value = ''
     contactEmail.value = ''
     
-    uni.showToast({
-      title: '提交成功',
-      icon: 'success'
-    })
+    // 重新加载历史记录
+    setTimeout(() => {
+      loadFeedbackHistory()
+    }, 500)
     
   } catch (error) {
+    console.error('❌ 提交反馈失败:', error)
     uni.showToast({
-      title: '提交失败，请重试',
-      icon: 'none'
+      title: error.message || '提交失败，请重试',
+      icon: 'none',
+      duration: 2000
     })
   } finally {
     isSubmitting.value = false
@@ -217,16 +273,64 @@ const submitFeedback = async () => {
 
 // 查看反馈详情
 const viewFeedback = (item) => {
+  // 直接使用列表数据展示详情，简洁明了
+  let content = `类型：${getTypeLabel(item.type)}\n\n`
+  content += `内容：${item.content}\n\n`
+  content += `提交时间：${formatDate(item.submitDate || item.createdAt || item.created_at)}\n\n`
+  content += `状态：${getStatusText(item.status || 'pending')}`
+  
   uni.showModal({
     title: '反馈详情',
-    content: `类型：${item.type}\n内容：${item.content}\n状态：${getStatusText(item.status)}`,
+    content: content,
     showCancel: false,
-    confirmText: '知道了'
+    confirmText: '知道了',
+    confirmColor: '#00BFCC'
   })
 }
 
+// 邮箱格式验证
+const isValidEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+// 手机号格式验证（简单验证11位数字）
+const isValidPhone = (phone) => {
+  const phoneRegex = /^1[3-9]\d{9}$/
+  return phoneRegex.test(phone)
+}
+
+// 格式化日期
+const formatDate = (date) => {
+  if (!date) return '未知'
+  
+  try {
+    // 如果是时间戳
+    if (typeof date === 'number') {
+      return new Date(date).toLocaleDateString('zh-CN')
+    }
+    
+    // 如果是日期字符串
+    if (typeof date === 'string') {
+      // 如果已经是 YYYY-MM-DD 格式
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date
+      }
+      // 尝试解析其他格式
+      return new Date(date).toLocaleDateString('zh-CN')
+    }
+    
+    return '未知'
+  } catch (error) {
+    console.error('日期格式化失败:', error)
+    return '未知'
+  }
+}
+
 onMounted(() => {
-  console.log('意见反馈页面加载')
+  console.log('📱 意见反馈页面加载')
+  // 加载历史反馈记录
+  loadFeedbackHistory()
 })
 </script>
 
@@ -493,5 +597,29 @@ onMounted(() => {
 .history-status.closed {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+/* 空状态 */
+.empty-state {
+  background: white;
+  border-radius: 12rpx;
+  padding: 80rpx 24rpx;
+  text-align: center;
+  border: 1rpx solid #e2e8f0;
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
+}
+
+.empty-text {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 12rpx;
+}
+
+.empty-desc {
+  display: block;
+  font-size: 22rpx;
+  color: #94a3b8;
 }
 </style>

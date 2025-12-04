@@ -61,11 +61,11 @@ const responseInterceptor = (response) => {
     } 
     
     // ❌ 业务错误: code 非0
-    const errorMsg = typeof data.message === 'string' 
-      ? data.message 
-      : JSON.stringify(data.message) || '操作失败'
-    
-    // 根据错误码进行不同处理
+    const errorMsg = typeof data.message === 'string'
+      ? data.message
+      : (data.message && typeof data.message === 'object' ? (data.message.message || JSON.stringify(data.message)) : '操作失败')
+
+    // 根据错误码进行不同处理（业务层可能会额外处理某些 code）
     switch (data.code) {
       case 400:
         // 参数错误/注册手机号重复 - 不自动Toast，由业务层处理
@@ -74,15 +74,18 @@ const responseInterceptor = (response) => {
         // 账号封禁 - 不自动Toast，由业务层处理（需要显示详细信息）
         break
       default:
-        // 其他错误统一Toast提示
+        // 其他错误统一Toast提示（友好提示）
         uni.showToast({
-          title: errorMsg,
+          title: errorMsg || '操作失败',
           icon: 'none',
           duration: 2000
         })
     }
-    
-    return Promise.reject({ code: data.code, message: errorMsg })
+
+    const err = new Error(errorMsg || '操作失败')
+    err.code = data.code
+    err.data = data
+    return Promise.reject(err)
   }
   
   // 401 未授权 - token无效或过期
@@ -104,14 +107,19 @@ const responseInterceptor = (response) => {
       })
     }, 1500)
     
-    return Promise.reject({ code: 401, message: '未授权，请重新登录' })
+    const err = new Error('未授权，请重新登录')
+    err.code = 401
+    return Promise.reject(err)
   }
   
   // 403 禁止访问（可能是封禁或权限不足）
   if (statusCode === 403) {
     const errorMsg = data?.message || '没有权限访问'
     // 不自动Toast，让业务层处理（封禁信息需要弹窗显示详细内容）
-    return Promise.reject({ code: 403, message: errorMsg })
+    const err = new Error(errorMsg)
+    err.code = 403
+    err.data = data
+    return Promise.reject(err)
   }
   
   // 其他HTTP错误统一处理
@@ -125,14 +133,16 @@ const responseInterceptor = (response) => {
   }
   
   const errorMsg = errorMessages[statusCode] || `请求失败 (${statusCode})`
-  
+
   uni.showToast({
     title: errorMsg,
     icon: 'none',
     duration: 2000
   })
-  
-  return Promise.reject({ code: statusCode, message: errorMsg })
+
+  const err = new Error(errorMsg)
+  err.code = statusCode
+  return Promise.reject(err)
 }
 
 /**
@@ -228,4 +238,3 @@ export default {
     })
   }
 }
-
