@@ -177,6 +177,54 @@
               </view>
             </view>
 
+            <!-- 可选：邮箱 -->
+            <view class="input-group">
+              <view class="input-label">邮箱 <text class="optional-tag">选填</text></view>
+              <view class="input-wrapper">
+                <uni-icons type="email" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <input
+                  class="input-field"
+                  type="email"
+                  placeholder="请输入邮箱地址"
+                  v-model="formData.email"
+                  placeholder-class="input-placeholder"
+                />
+              </view>
+            </view>
+
+            <!-- 可选：患者类型 -->
+            <view class="input-group">
+              <view class="input-label">患者类型 <text class="optional-tag">选填</text></view>
+              <view class="input-wrapper">
+                <uni-icons type="staff" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <picker mode="selector" :range="patientTypeOptions.map(o => o.label)" :value="patientTypeIndex" @change="onPatientTypeChange">
+                  <view class="input-field">{{ patientTypeIndex >= 0 ? patientTypeOptions[patientTypeIndex].label : '请选择患者类型（学生/教师/职工）' }}</view>
+                </picker>
+              </view>
+            </view>
+
+            <!-- 可选：性别 -->
+            <view class="input-group">
+              <view class="input-label">性别 <text class="optional-tag">选填</text></view>
+              <view class="input-wrapper">
+                <uni-icons type="person" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <picker mode="selector" :range="genderOptions.map(o => o.label)" :value="genderIndex" @change="onGenderChange">
+                  <view class="input-field">{{ genderIndex >= 0 ? genderOptions[genderIndex].label : '请选择性别' }}</view>
+                </picker>
+              </view>
+            </view>
+
+            <!-- 可选：出生日期 -->
+            <view class="input-group">
+              <view class="input-label">出生日期 <text class="optional-tag">选填</text></view>
+              <view class="input-wrapper">
+                <uni-icons type="calendar" size="18" color="#00D5D9" class="input-icon"></uni-icons>
+                <picker mode="date" @change="onBirthDateChange">
+                  <view class="input-field">{{ formData.birth_date || '请选择出生日期' }}</view>
+                </picker>
+              </view>
+            </view>
+
             <!-- 用户协议 -->
             <view class="agreement-section">
               <view class="checkbox-wrapper" @tap="toggleAgreement">
@@ -258,7 +306,12 @@ const formData = reactive({
   name: '',
   password: '',
   confirmPassword: '',
-  identifier: ''
+  identifier: '',
+  // 可选扩展字段（如需要，可在 UI 中添加输入项）
+  email: '',
+  patient_type: '',
+  gender: '',
+  birth_date: ''
 })
 
 // 计算属性
@@ -269,6 +322,39 @@ const stepSubtitle = computed(() => {
   }
   return subtitles[currentStep.value] || ''
 })
+
+// 下拉/选择数据（用于第二步可选字段）
+const patientTypeOptions = [
+  { label: '学生', value: 'student' },
+  { label: '教师', value: 'teacher' },
+  { label: '职工', value: 'staff' }
+]
+const patientTypeIndex = ref(-1)
+
+const genderOptions = [
+  { label: '男', value: '男' },
+  { label: '女', value: '女' },
+  { label: '未知', value: '未知' }
+]
+const genderIndex = ref(-1)
+
+const onPatientTypeChange = (e) => {
+  const idx = Number(e?.detail?.value)
+  patientTypeIndex.value = idx
+  if (idx >= 0) formData.patient_type = patientTypeOptions[idx].value
+}
+
+const onGenderChange = (e) => {
+  const idx = Number(e?.detail?.value)
+  genderIndex.value = idx
+  if (idx >= 0) formData.gender = genderOptions[idx].value
+}
+
+const onBirthDateChange = (e) => {
+  if (e && e.detail && e.detail.value) {
+    formData.birth_date = e.detail.value
+  }
+}
 
 const maskedPhone = computed(() => {
   const phone = formData.phonenumber
@@ -308,24 +394,47 @@ const sendCode = async () => {
     
   } catch (error) {
     console.error('发送验证码失败:', error)
-    
-    // 解析错误信息
+
+    // 解析错误信息并对频率/短信发送失败给出友好提示
     let errorMsg = '发送失败，请稍后重试'
-    if (error.message) {
-      try {
+
+    // 网络/超时类错误：request.js 会抛出 Error，优先显示其提示
+    if (error instanceof Error && error.message) {
+      errorMsg = error.message
+      errorMessage.value = errorMsg
+      isSendingCode.value = false
+      return
+    }
+
+    try {
+      // 后端业务错误可能为 { code: 301, message: '...'} 或 message 为 JSON 字符串
+      if (error && error.code === 301) {
+        errorMsg = '发送过于频繁，请稍后再试'
+      } else if (error && error.message) {
         if (typeof error.message === 'string' && error.message.startsWith('{')) {
-          const parsedError = JSON.parse(error.message)
-          errorMsg = parsedError.msg || parsedError.error || error.message
+          const parsed = JSON.parse(error.message)
+          const m = parsed.msg || parsed.error || ''
+          if (m && (m.includes('短信发送') || m.includes('发送失败') || m.includes('频率'))) {
+            errorMsg = '发送过于频繁，请稍后再试'
+          } else {
+            errorMsg = parsed.msg || parsed.error || error.message
+          }
         } else if (typeof error.message === 'object' && error.message.msg) {
-          errorMsg = error.message.msg
+          const m = error.message.msg
+          if (m && (m.includes('短信发送') || m.includes('发送失败') || m.includes('频率'))) {
+            errorMsg = '发送过于频繁，请稍后再试'
+          } else {
+            errorMsg = m
+          }
         } else {
           errorMsg = error.message
         }
-      } catch (parseError) {
-        errorMsg = error.message
       }
+    } catch (parseErr) {
+      console.warn('解析发送验证码错误失败', parseErr)
+      errorMsg = '发送失败，请稍后再试'
     }
-    
+
     errorMessage.value = errorMsg
   } finally {
     isSendingCode.value = false
@@ -439,6 +548,30 @@ const validateForm = () => {
     errorMessage.value = '请先同意用户协议和隐私政策'
     return false
   }
+
+  // 可选字段基本校验
+  if (formData.email && formData.email.trim()) {
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRe.test(formData.email.trim())) {
+      errorMessage.value = '请输入正确的邮箱地址'
+      return false
+    }
+  }
+
+  if (formData.patient_type && !['student', 'teacher', 'staff'].includes(formData.patient_type)) {
+    errorMessage.value = '请选择有效的患者类型'
+    return false
+  }
+
+  if (formData.gender && !['男', '女', '未知'].includes(formData.gender)) {
+    errorMessage.value = '请选择有效的性别'
+    return false
+  }
+
+  if (formData.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(formData.birth_date)) {
+    errorMessage.value = '出生日期格式应为 YYYY-MM-DD'
+    return false
+  }
   
   return true
 }
@@ -461,8 +594,20 @@ const handleRegister = async () => {
     }
     
     // 可选字段
-    if (formData.identifier.trim()) {
+    if (formData.identifier && formData.identifier.trim()) {
       registerData.identifier = formData.identifier.trim()
+    }
+    if (formData.email && formData.email.trim()) {
+      registerData.email = formData.email.trim()
+    }
+    if (formData.patient_type && formData.patient_type.trim()) {
+      registerData.patient_type = formData.patient_type.trim()
+    }
+    if (formData.gender && formData.gender.trim()) {
+      registerData.gender = formData.gender.trim()
+    }
+    if (formData.birth_date && formData.birth_date.trim()) {
+      registerData.birth_date = formData.birth_date.trim()
     }
     
     console.log('注册数据:', registerData)
