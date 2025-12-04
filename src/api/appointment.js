@@ -386,10 +386,19 @@ export const getMyAppointments = (params = {}) => {
     })
   }
   // 后端接口参数
+  // 将前端状态映射为后端期望的状态值（避免筛选不匹配）
+  const clientToBackendStatus = {
+    pending: 'confirmed',
+    completed: 'finished',
+    cancelled: 'cancelled'
+  }
+
   const apiParams = {
-    status: params.status || 'all',
     page: params.page || 1,
     pageSize: params.pageSize || 10
+  }
+  if (params.status && params.status !== 'all') {
+    apiParams.status = clientToBackendStatus[params.status] || params.status
   }
   
   return request.get('/patient/appointments', apiParams).then(response => {
@@ -450,10 +459,18 @@ export const getMyInitiatedAppointments = (params = {}) => {
   }
   
   // 后端接口参数
+  const clientToBackendStatus = {
+    pending: 'confirmed',
+    completed: 'finished',
+    cancelled: 'cancelled'
+  }
+
   const apiParams = {
-    status: params.status || 'all',
     page: params.page || 1,
     pageSize: params.pageSize || 10
+  }
+  if (params.status && params.status !== 'all') {
+    apiParams.status = clientToBackendStatus[params.status] || params.status
   }
   
   return request.get('/patient/my-initiated-appointments', apiParams).then(response => {

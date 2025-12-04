@@ -229,27 +229,37 @@ const goToAppointment = () => {
 const loadAppointments = async () => {
   try {
     loading.value = true
-    
+
     // ✨ 根据视图模式调用不同的 API
     const apiCall = viewMode.value === 'my' ? getMyAppointments : getMyInitiatedAppointments
-    const result = await apiCall({
-      status: selectedStatus.value === 'all' ? undefined : selectedStatus.value,
-      page: 1,
-      pageSize: 100
-    })
-    
-    appointments.value = result.list || []
-    appointmentStore.setAppointments(appointments.value)
-    
-    // 更新状态标签计数
+
+    // 先拉取全部（不带状态过滤）的数据以便正确计算每个状态的计数
+    const allResult = await apiCall({ page: 1, pageSize: 1000 })
+    const allList = allResult.list || []
+
+    // 计算并更新状态标签计数（全局统计，避免在切换筛选时被覆盖）
     statusTabs.value.forEach(tab => {
       if (tab.key === 'all') {
-        tab.count = result.total || 0
+        tab.count = allResult.total || allList.length || 0
       } else {
-        tab.count = appointments.value.filter(a => a.status === tab.key).length
+        tab.count = allList.filter(a => a.status === tab.key).length
       }
     })
-    
+
+    // 如果当前筛选是全部，直接使用 allList；否则再请求带状态过滤的列表用于显示（保留分页参数）
+    if (selectedStatus.value === 'all') {
+      appointments.value = allList
+    } else {
+      const result = await apiCall({
+        status: selectedStatus.value,
+        page: 1,
+        pageSize: 100
+      })
+      appointments.value = result.list || []
+    }
+
+    appointmentStore.setAppointments(appointments.value)
+
   } catch (error) {
     console.error('获取预约列表失败:', error)
     uni.showToast({
