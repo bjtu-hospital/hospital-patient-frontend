@@ -102,8 +102,18 @@ const switchView = (mode) => {
 // 切换状态
 const switchStatus = (statusKey) => {
   selectedStatus.value = statusKey
-  // 切换状态时重新加载数据
-  loadAppointments()
+  // 从缓存中快速过滤（无需重新请求），保持和"全部/待就诊/已完成"切换一样快
+  if (allAppointmentsCache.value.length > 0) {
+    if (selectedStatus.value === 'all') {
+      appointments.value = allAppointmentsCache.value
+    } else {
+      appointments.value = allAppointmentsCache.value.filter(a => a.status === selectedStatus.value)
+    }
+    appointmentStore.setAppointments(appointments.value)
+  } else {
+    // 首次加载或缓存为空时才请求
+    loadAppointments()
+  }
 }
 
 // 获取状态文本
@@ -225,6 +235,9 @@ const goToAppointment = () => {
   })
 }
 
+// 全量预约数据缓存（用于快速切换和计数）
+const allAppointmentsCache = ref([])
+
 // 加载预约数据
 const loadAppointments = async () => {
   try {
@@ -233,29 +246,24 @@ const loadAppointments = async () => {
     // ✨ 根据视图模式调用不同的 API
     const apiCall = viewMode.value === 'my' ? getMyAppointments : getMyInitiatedAppointments
 
-    // 先拉取全部（不带状态过滤）的数据以便正确计算每个状态的计数
+    // 一次性拉取全部数据并缓存（避免重复请求）
     const allResult = await apiCall({ page: 1, pageSize: 1000 })
-    const allList = allResult.list || []
+    allAppointmentsCache.value = allResult.list || []
 
-    // 计算并更新状态标签计数（全局统计，避免在切换筛选时被覆盖）
+    // 更新状态标签计数（从缓存计算，保证准确且快速）
     statusTabs.value.forEach(tab => {
       if (tab.key === 'all') {
-        tab.count = allResult.total || allList.length || 0
+        tab.count = allAppointmentsCache.value.length
       } else {
-        tab.count = allList.filter(a => a.status === tab.key).length
+        tab.count = allAppointmentsCache.value.filter(a => a.status === tab.key).length
       }
     })
 
-    // 如果当前筛选是全部，直接使用 allList；否则再请求带状态过滤的列表用于显示（保留分页参数）
+    // 从缓存中过滤出当前选中状态的数据（内存过滤，无需额外请求）
     if (selectedStatus.value === 'all') {
-      appointments.value = allList
+      appointments.value = allAppointmentsCache.value
     } else {
-      const result = await apiCall({
-        status: selectedStatus.value,
-        page: 1,
-        pageSize: 100
-      })
-      appointments.value = result.list || []
+      appointments.value = allAppointmentsCache.value.filter(a => a.status === selectedStatus.value)
     }
 
     appointmentStore.setAppointments(appointments.value)

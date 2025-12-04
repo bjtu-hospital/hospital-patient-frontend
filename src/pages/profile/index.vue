@@ -11,7 +11,7 @@
           <!-- 认证状态标签 -->
           <view class="verify-badge" v-if="isVerified">
             <text class="badge-icon">✓</text>
-            <text class="badge-text">已认证</text>
+            <text class="badge-text">已认证 · {{ roleTypeText }}</text>
           </view>
           <view class="verify-badge unverified" v-else @tap="goToVerify">
             <text class="badge-icon">🎓</text>
@@ -76,7 +76,7 @@
         </view>
         <text class="other-text">校内身份认证</text>
         <view class="verify-status" v-if="isVerified">
-          <text class="status-text verified">已认证</text>
+          <text class="status-text verified">已认证 · {{ roleTypeText }}</text>
         </view>
         <view class="verify-status" v-else>
           <text class="status-text unverified">未认证</text>
@@ -144,6 +144,19 @@ const isVerified = computed(() => {
     isVerified: !!(userInfo.value.identifier && userInfo.value.verified)
   })
   return !!(userInfo.value.identifier && userInfo.value.verified)
+})
+
+// 角色类型文本（学生/教师/职工）
+const roleTypeText = computed(() => {
+  const typeMap = {
+    '学生': '学生',
+    'student': '学生',
+    '教师': '教师',
+    'teacher': '教师',
+    '职工': '职工',
+    'staff': '职工'
+  }
+  return typeMap[userInfo.value.patientType] || '已认证'
 })
 
 // 计算用户名首字（用于头像）

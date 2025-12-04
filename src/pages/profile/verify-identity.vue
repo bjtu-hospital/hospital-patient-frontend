@@ -9,51 +9,72 @@
 
     <!-- 认证表单 -->
     <view class="verify-form">
-      <view class="form-item">
-        <view class="item-label">
-          <text class="label-text">学号/工号</text>
-          <text class="label-required">*</text>
+      <!-- 未认证时显示输入表单 -->
+      <template v-if="!isVerified">
+        <view class="form-item">
+          <view class="item-label">
+            <text class="label-text">学号/工号</text>
+            <text class="label-required">*</text>
+          </view>
+          <input 
+            class="item-input"
+            v-model="formData.identifier"
+            placeholder="请输入学号或工号"
+          />
         </view>
-        <input 
-          class="item-input"
-          v-model="formData.identifier"
-          placeholder="请输入学号或工号"
-          :disabled="isVerified"
-        />
-      </view>
 
-      <view class="form-item">
-        <view class="item-label">
-          <text class="label-text">校园系统密码</text>
-          <text class="label-required">*</text>
+        <view class="form-item">
+          <view class="item-label">
+            <text class="label-text">校园系统密码</text>
+            <text class="label-required">*</text>
+          </view>
+          <input 
+            class="item-input"
+            v-model="formData.password"
+            type="password"
+            placeholder="请输入校园系统密码"
+          />
         </view>
-        <input 
-          class="item-input"
-          v-model="formData.password"
-          type="password"
-          placeholder="请输入校园系统密码"
-          :disabled="isVerified"
-        />
-      </view>
 
-      <!-- 提示信息 -->
-      <view class="tips-box">
-        <text class="tips-icon">ℹ️</text>
-        <view class="tips-content">
-          <text class="tips-text">• 请使用您的教务系统/统一身份认证账号密码</text>
-          <text class="tips-text">• 密码仅用于身份验证，不会被存储</text>
-          <text class="tips-text">• 认证成功后可享受校内优惠政策</text>
+        <!-- 提示信息 -->
+        <view class="tips-box">
+          <text class="tips-icon">ℹ️</text>
+          <view class="tips-content">
+            <text class="tips-text">• 请使用您的教务系统/统一身份认证账号密码</text>
+            <text class="tips-text">• 密码仅用于身份验证，不会被存储</text>
+            <text class="tips-text">• 认证成功后可享受校内优惠政策</text>
+          </view>
         </view>
-      </view>
+      </template>
 
-      <!-- 认证状态显示 -->
-      <view class="status-box" v-if="isVerified">
-        <view class="status-icon">✅</view>
-        <view class="status-content">
-          <text class="status-title">已完成认证</text>
-          <text class="status-desc">您的校内身份已验证</text>
+      <!-- 已认证时显示认证信息 -->
+      <template v-else>
+        <view class="verified-info-card">
+          <view class="verified-header">
+            <view class="verified-icon">✅</view>
+            <text class="verified-title">认证成功</text>
+          </view>
+          
+          <view class="info-item">
+            <text class="info-label">学号/工号</text>
+            <text class="info-value">{{ verifiedInfo.identifier }}</text>
+          </view>
+          
+          <view class="info-item">
+            <text class="info-label">角色类型</text>
+            <text class="info-value">{{ verifiedInfo.roleType }}</text>
+          </view>
+          
+          <view class="info-item">
+            <text class="info-label">姓名</text>
+            <text class="info-value">{{ verifiedInfo.userName }}</text>
+          </view>
+          
+          <view class="verified-tips">
+            <text class="tips-text">🎉 您已享受校内优惠政策</text>
+          </view>
         </view>
-      </view>
+      </template>
 
       <!-- 提交按钮 -->
       <button 
@@ -86,6 +107,14 @@ const isVerified = ref(false)
 // 加载状态
 const loading = ref(false)
 
+// 已认证用户信息
+const verifiedInfo = ref({
+  identifier: '',
+  roleType: '',
+  userName: '',
+  userId: ''
+})
+
 // 加载用户信息，检查是否已认证
 const loadUserInfo = async () => {
   try {
@@ -97,7 +126,26 @@ const loadUserInfo = async () => {
     if (userInfo.identifier && userInfo.verified) {
       formData.value.identifier = userInfo.identifier
       isVerified.value = true
-      console.log('✅ 用户已认证')
+      
+      // 映射角色类型
+      const roleTypeMap = {
+        '学生': '学生',
+        'student': '学生',
+        '教师': '教师',
+        'teacher': '教师',
+        '职工': '职工',
+        'staff': '职工'
+      }
+      
+      // 填充已认证用户信息
+      verifiedInfo.value = {
+        identifier: userInfo.identifier,
+        roleType: roleTypeMap[userInfo.patientType] || userInfo.patientType || '未知',
+        userName: userInfo.realName || '未填写',
+        userId: userInfo.id || '-'
+      }
+      
+      console.log('✅ 用户已认证', verifiedInfo.value)
     } else {
       console.log('❌ 用户未认证', {
         identifier: userInfo.identifier,
@@ -311,6 +359,73 @@ onMounted(() => {
 
 .tips-text:last-child {
   margin-bottom: 0;
+}
+
+/* 已认证信息卡片 */
+.verified-info-card {
+  background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%);
+  border-radius: 20rpx;
+  padding: 32rpx;
+  margin-bottom: 32rpx;
+}
+
+.verified-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid rgba(76, 175, 80, 0.2);
+}
+
+.verified-icon {
+  font-size: 48rpx;
+  margin-right: 12rpx;
+}
+
+.verified-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2E7D32;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 16rpx;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.info-item:last-of-type {
+  margin-bottom: 24rpx;
+}
+
+.info-label {
+  font-size: 26rpx;
+  color: #555;
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.verified-tips {
+  text-align: center;
+  padding: 16rpx;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12rpx;
+}
+
+.verified-tips .tips-text {
+  font-size: 24rpx;
+  color: #4CAF50;
+  font-weight: 500;
 }
 
 /* 认证状态 */
