@@ -61,12 +61,21 @@ const responseInterceptor = (response) => {
     } 
     
     // ❌ 业务错误: code 非0
-    const errorMsg = typeof data.message === 'string'
-      ? data.message
-      : (data.message && typeof data.message === 'object' ? (data.message.message || JSON.stringify(data.message)) : '操作失败')
+    let errorMsg = '操作失败'
+    
+    // 解析错误消息（支持多层嵌套）
+    if (typeof data.message === 'string') {
+      errorMsg = data.message
+    } else if (data.message && typeof data.message === 'object') {
+      // 处理嵌套对象: { error: "...", msg: "..." }
+      errorMsg = data.message.msg || data.message.error || data.message.message || JSON.stringify(data.message)
+    }
 
     // 根据错误码进行不同处理（业务层可能会额外处理某些 code）
     switch (data.code) {
+      case 101:
+        // 认证异常（包括封禁）- 不自动Toast，由业务层处理
+        break
       case 400:
         // 参数错误/注册手机号重复 - 不自动Toast，由业务层处理
         break
@@ -82,7 +91,7 @@ const responseInterceptor = (response) => {
         })
     }
 
-    const err = new Error(errorMsg || '操作失败')
+    const err = new Error(errorMsg)
     err.code = data.code
     err.data = data
     return Promise.reject(err)
