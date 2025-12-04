@@ -311,19 +311,34 @@ export const createAppointment = (data) => {
       needPay: true,
       payAmount: 50,
       appointmentDate: data.date || '2024-11-10',
-      appointmentTime: data.time || '上午 08:00-08:30'
+      appointmentTime: data.time || '上午 08:00-08:30',
+      status: 'pending',
+      paymentStatus: 'pending'
     }
     return Promise.resolve(result)
   }
-  // 后端需要的参数格式
+  
+  // 后端 API 参数（完全按照 Swagger 文档）
   const apiData = {
-    scheduleId: data.scheduleId,
-    hospitalId: data.hospitalId,
-    departmentId: data.departmentId,
-    patientId: data.patientId,
-    symptoms: data.symptoms || ''
+    scheduleId: data.scheduleId,      // 必填：排班ID
+    hospitalId: data.hospitalId,      // 必填：医院ID（院区ID）
+    departmentId: data.departmentId,  // 必填：科室ID
+    patientId: data.patientId,        // 必填：患者ID（本人或就诊人的patientId）
+    symptoms: data.symptoms || ''     // 可选：症状描述
   }
-  return request.post('/patient/appointments', apiData)
+  
+  console.log('📤 创建预约请求参数:', apiData)
+  
+  return request.post('/patient/appointments', apiData).then(response => {
+    console.log('📥 创建预约响应:', response)
+    
+    // 后端返回格式：
+    // {
+    //   id, orderNo, queueNumber, needPay, payAmount,
+    //   appointmentDate, appointmentTime, status, paymentStatus
+    // }
+    return response
+  })
 }
 
 /**
@@ -407,6 +422,65 @@ export const getMyAppointments = (params = {}) => {
         }
         
         // 判断是否可取消/改约（只有未来的待就诊预约才能操作）
+        const canCancel = finalStatus === 'pending' && isFutureAppointment
+        const canReschedule = finalStatus === 'pending' && isFutureAppointment
+        
+        return {
+          ...appointment,
+          status: finalStatus,
+          canCancel,
+          canReschedule
+        }
+      })
+    }
+    
+    return response
+  })
+}
+
+/**
+ * 获取我创建的预约（包括为他人代约的）
+ * @param {Object} params - 查询参数 {status, page, pageSize}
+ * @returns {Promise} 返回预约列表 {total, list}
+ */
+export const getMyInitiatedAppointments = (params = {}) => {
+  if (USE_MOCK) {
+    // Mock模式下返回相同数据
+    return getMyAppointments(params)
+  }
+  
+  // 后端接口参数
+  const apiParams = {
+    status: params.status || 'all',
+    page: params.page || 1,
+    pageSize: params.pageSize || 10
+  }
+  
+  return request.get('/patient/my-initiated-appointments', apiParams).then(response => {
+    // 状态映射和数据处理逻辑与getMyAppointments相同
+    const statusMap = {
+      'confirmed': 'pending',
+      'finished': 'completed',
+      'cancelled': 'cancelled'
+    }
+    
+    if (response && response.list) {
+      response.list = response.list.map(appointment => {
+        const mappedStatus = statusMap[appointment.status] || appointment.status
+        
+        const appointmentDate = new Date(appointment.appointmentDate)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        appointmentDate.setHours(0, 0, 0, 0)
+        
+        const isPastAppointment = appointmentDate < today
+        const isFutureAppointment = appointmentDate >= today
+        
+        let finalStatus = mappedStatus
+        if (isPastAppointment && mappedStatus === 'pending') {
+          finalStatus = 'completed'
+        }
+        
         const canCancel = finalStatus === 'pending' && isFutureAppointment
         const canReschedule = finalStatus === 'pending' && isFutureAppointment
         

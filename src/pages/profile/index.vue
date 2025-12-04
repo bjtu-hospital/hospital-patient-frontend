@@ -6,7 +6,18 @@
         <view class="user-avatar">
           <text class="avatar-text">{{ nameFirstChar }}</text>
         </view>
-        <text class="user-greeting">{{ greeting }}</text>
+        <view class="user-content">
+          <text class="user-greeting">{{ greeting }}</text>
+          <!-- 认证状态标签 -->
+          <view class="verify-badge" v-if="isVerified">
+            <text class="badge-icon">✓</text>
+            <text class="badge-text">已认证</text>
+          </view>
+          <view class="verify-badge unverified" v-else @tap="goToVerify">
+            <text class="badge-icon">🎓</text>
+            <text class="badge-text">未认证</text>
+          </view>
+        </view>
       </view>
       <view class="account-settings" @tap="goToSettings">
         <text class="settings-text">账号设置</text>
@@ -59,6 +70,19 @@
     <!-- 其他功能 -->
     <view class="other-section">
       <text class="section-title">其他功能</text>
+      <view class="other-item" @tap="goToVerify">
+        <view class="item-icon">
+          <uni-icons type="flag" size="24" color="#00D5D9"></uni-icons>
+        </view>
+        <text class="other-text">校内身份认证</text>
+        <view class="verify-status" v-if="isVerified">
+          <text class="status-text verified">已认证</text>
+        </view>
+        <view class="verify-status" v-else>
+          <text class="status-text unverified">未认证</text>
+        </view>
+        <text class="item-arrow">›</text>
+      </view>
       <view class="other-item" @tap="goToFeedback">
         <view class="item-icon">
           <uni-icons type="chatbubble" size="24" color="#00D5D9"></uni-icons>
@@ -93,6 +117,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/stores/user'
 import { getUserInfo } from '@/api/user'
 
@@ -103,12 +128,23 @@ const userStore = useUserStore()
 const userInfo = ref({
   realName: '',
   phone: '',
-  studentId: '',
+  identifier: '',
+  verified: false,
   idCard: ''
 })
 
 // 是否加载中
 const loading = ref(false)
+
+// 是否已认证（需要同时满足：有identifier且verified为true）
+const isVerified = computed(() => {
+  console.log('🔍 认证状态检查:', {
+    identifier: userInfo.value.identifier,
+    verified: userInfo.value.verified,
+    isVerified: !!(userInfo.value.identifier && userInfo.value.verified)
+  })
+  return !!(userInfo.value.identifier && userInfo.value.verified)
+})
 
 // 计算用户名首字（用于头像）
 const nameFirstChar = computed(() => {
@@ -178,6 +214,12 @@ const goToSettings = () => {
   })
 }
 
+const goToVerify = () => {
+  uni.navigateTo({
+    url: '/pages/profile/verify-identity'
+  })
+}
+
 /**
  * 加载用户信息
  */
@@ -218,6 +260,12 @@ onMounted(() => {
   // 页面加载时获取用户信息
   loadUserInfo()
 })
+
+// 每次页面显示时重新加载用户信息（从认证页面返回时会触发）
+onShow(() => {
+  console.log('个人中心页面显示，重新加载用户信息')
+  loadUserInfo()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -243,6 +291,10 @@ onMounted(() => {
   flex: 1;
 }
 
+.user-content {
+  flex: 1;
+}
+
 .user-avatar {
   width: 100rpx;
   height: 100rpx;
@@ -263,6 +315,33 @@ onMounted(() => {
 .user-greeting {
   font-size: 32rpx;
   font-weight: 500;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+/* 认证状态标签 */
+.verify-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8rpx 16rpx;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 20rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.4);
+}
+
+.verify-badge.unverified {
+  background: rgba(255, 152, 0, 0.15);
+  border-color: rgba(255, 152, 0, 0.3);
+}
+
+.badge-icon {
+  font-size: 20rpx;
+  margin-right: 6rpx;
+}
+
+.badge-text {
+  font-size: 20rpx;
+  color: white;
 }
 
 .account-settings {
@@ -340,6 +419,27 @@ onMounted(() => {
   font-size: 26rpx;
   color: #374151;
   flex: 1;
+}
+
+/* 认证状态标识 */
+.verify-status {
+  margin-right: 12rpx;
+}
+
+.status-text {
+  font-size: 22rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 12rpx;
+}
+
+.status-text.verified {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.status-text.unverified {
+  background: #FFF3E0;
+  color: #E65100;
 }
 
 .item-arrow {

@@ -332,12 +332,13 @@ const savePatient = async () => {
     uni.showLoading({ title: editingPatient.value ? '保存中...' : '添加中...' })
 
     if (editingPatient.value) {
-      // 仅发送后端允许的字段
+      // 仅发送后端允许的字段（使用前端 API 定义的 camelCase）
       const requestData = {}
-      if (formData.relation) requestData.relation_type = formData.relation
+      if (formData.relation) requestData.relationType = formData.relation
       if (formData.remark !== undefined) requestData.remark = formData.remark
 
       console.log('更新就诊人请求，patientId:', editingPatient.value.patientId, 'data:', requestData)
+      // updatePatient API 会把 relationType 映射为 relation_type 后发送到后端
       await updatePatientApi(editingPatient.value.patientId, requestData)
       uni.showToast({ title: '修改成功', icon: 'success' })
     } else {

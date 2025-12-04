@@ -1,5 +1,23 @@
 <template>
   <view class="appointments-container">
+    <!-- 视图切换 -->
+    <view class="view-switch">
+      <view 
+        class="switch-item"
+        :class="{ 'active': viewMode === 'my' }"
+        @tap="switchView('my')"
+      >
+        <text>我的就诊</text>
+      </view>
+      <view 
+        class="switch-item"
+        :class="{ 'active': viewMode === 'initiated' }"
+        @tap="switchView('initiated')"
+      >
+        <text>我创建的</text>
+      </view>
+    </view>
+
     <!-- 状态筛选 -->
     <view class="status-tabs">
       <view 
@@ -31,7 +49,7 @@
       <EmptyState 
         v-if="filteredAppointments.length === 0"
         icon="list"
-        :text="`暂无${getStatusText(selectedStatus)}预约`"
+        :text="getEmptyText()"
       >
         <template #action>
           <button class="go-appointment-btn" @tap="goToAppointment">
@@ -46,9 +64,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getMyAppointments, cancelAppointment as cancelAppointmentApi } from '@/api/appointment'
+import { getMyAppointments, getMyInitiatedAppointments, cancelAppointment as cancelAppointmentApi } from '@/api/appointment'
 import { useAppointmentStore } from '@/stores/appointment'
 
+const viewMode = ref('my') // 'my' | 'initiated'
 const selectedStatus = ref('all')
 const loading = ref(false)
 const appointmentStore = useAppointmentStore()
@@ -72,6 +91,14 @@ const filteredAppointments = computed(() => {
   return appointments.value.filter(appointment => appointment.status === selectedStatus.value)
 })
 
+// 切换视图
+const switchView = (mode) => {
+  if (viewMode.value === mode) return
+  viewMode.value = mode
+  selectedStatus.value = 'all' // 切换视图时重置状态为全部
+  loadAppointments()
+}
+
 // 切换状态
 const switchStatus = (statusKey) => {
   selectedStatus.value = statusKey
@@ -88,6 +115,13 @@ const getStatusText = (status) => {
     cancelled: '已取消'
   }
   return statusMap[status] || status
+}
+
+// 获取空状态提示文本
+const getEmptyText = () => {
+  const viewText = viewMode.value === 'my' ? '我的就诊' : '我创建的'
+  const statusText = getStatusText(selectedStatus.value)
+  return `暂无${viewText}${statusText === '全部' ? '' : statusText}预约`
 }
 
 // 查看详情
@@ -196,8 +230,9 @@ const loadAppointments = async () => {
   try {
     loading.value = true
     
-    // ✨ 调用 API 获取预约列表（自动判断 Mock/真实接口）
-    const result = await getMyAppointments({
+    // ✨ 根据视图模式调用不同的 API
+    const apiCall = viewMode.value === 'my' ? getMyAppointments : getMyInitiatedAppointments
+    const result = await apiCall({
       status: selectedStatus.value === 'all' ? undefined : selectedStatus.value,
       page: 1,
       pageSize: 100
@@ -244,6 +279,32 @@ onShow(() => {
   min-height: 100vh;
   padding: 32rpx;
   padding-bottom: 120rpx;
+}
+
+/* 视图切换 */
+.view-switch {
+  display: flex;
+  background: white;
+  border-radius: 16rpx;
+  padding: 8rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.08);
+}
+
+.switch-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.switch-item.active {
+  background: linear-gradient(135deg, $hospital-primary 0%, $hospital-accent 100%);
+  color: white;
+  font-weight: 600;
 }
 
 /* 状态筛选 */

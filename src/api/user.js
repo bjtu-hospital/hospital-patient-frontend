@@ -27,9 +27,13 @@ export const getUserInfo = () => {
     return Promise.resolve(mockUserInfo)
   }
   // 调用多角色通用接口，返回患者信息
-  return request.post('/auth/user-info').then(response => {
-    // 后端返回 { patient: {...}, doctor: null }
+  return request.get('/auth/user-info').then(response => {
+    // 后端返回 { patient: {...}, doctor: {...} }
+    // 响应拦截器已经提取了 message 字段，所以 response = message
     const patient = response.patient || {}
+    
+    console.log('📱 getUserInfo 原始响应:', response)
+    console.log('📱 患者信息:', patient)
     
     // 映射字段名并返回
     return {
@@ -43,9 +47,11 @@ export const getUserInfo = () => {
       age: patient.age,
       email: patient.email,
       avatar: patient.avatar,
+      verified: patient.verified,                     // 是否已验证
+      patientType: patient.patientType || patient.patient_type,  // 患者类型
       status: patient.status,
       riskScore: patient.riskScore || patient.risk_score,
-      maskedInfo: patient.maskedInfo || {
+      maskedInfo: patient.maskedInfo || patient.masked_info || {
         phone: patient.phonenumber,
         idCard: patient.idCard || patient.id_card
       }
@@ -298,4 +304,34 @@ export const getReports = (params) => {
     })
   }
   return request.get('/patient/reports', params)
+}
+
+// ==================== 身份认证相关 ====================
+
+/**
+ * 校内身份认证
+ * @param {Object} data - 认证信息 { identifier: 学号/工号, password: 校园系统密码 }
+ * @returns {Promise} 返回认证结果
+ */
+export const verifyIdentity = (data) => {
+  if (USE_MOCK) {
+    // Mock 数据模拟认证成功
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (data.identifier && data.password) {
+          resolve({
+            code: 0,
+            message: '认证成功'
+          })
+        } else {
+          reject(new Error('学号和密码不能为空'))
+        }
+      }, 1000)
+    })
+  }
+  
+  return request.post('/patient/identity/verify', {
+    identifier: data.identifier,
+    password: data.password
+  })
 }

@@ -130,6 +130,12 @@
 		}
 	},
 	{
+		"path": "pages/profile/verify-identity",
+		"style": {
+			"navigationBarTitleText": "校内身份认证"
+		}
+	},
+	{
 		"path": "pages/message/index",
 		"style": {
 			"navigationBarTitleText": "消息中心"

@@ -63,6 +63,8 @@ export const mockUserInfo = {
   age: 35,
   email: 'zhangsan@bjtu.edu.cn',
   avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+  verified: true,                             // 是否已验证
+  patientType: '学生',                         // 患者类型
   status: 'active',
   riskScore: 0,
   maskedInfo: {
