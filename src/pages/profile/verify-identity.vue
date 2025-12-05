@@ -24,17 +24,18 @@
         </view>
 
         <view class="form-item">
-          <view class="item-label">
-            <text class="label-text">校园系统密码</text>
-            <text class="label-required">*</text>
-          </view>
-          <input 
-            class="item-input"
-            v-model="formData.password"
-            type="password"
-            placeholder="请输入校园系统密码"
-          />
-        </view>
+  <view class="item-label">
+    <text class="label-text">校园系统密码</text>
+    <text class="label-required">*</text>
+  </view>
+  <input 
+    class="item-input"
+    v-model="formData.password"
+    type="password"
+    :password="true"
+    placeholder="请输入校园系统密码"
+  />
+</view>
 
         <!-- 提示信息 -->
         <view class="tips-box">
