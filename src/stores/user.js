@@ -5,6 +5,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as authApi from '@/api/auth'
 import { setToken, removeToken, setUserInfo, removeUserInfo, checkAuth as checkAuthUtil } from '@/utils/auth'
+import { getUserInfo as getUserInfoApi } from '@/api/user'
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -28,14 +29,39 @@ export const useUserStore = defineStore('user', () => {
       token.value = tokenStr
       setToken(tokenStr)
       
-      // 调用 /auth/me 获取用户角色信息
-      const userRoleInfo = await authApi.getCurrentUser()
+      // 尝试调用 /auth/me 获取用户角色信息
+      try {
+        const userRoleInfo = await authApi.getCurrentUser()
+        
+        // 保存用户基本信息（角色）
+        userInfo.value = userRoleInfo
+        setUserInfo(userRoleInfo)
+        
+        console.log('✅ 获取用户角色成功:', userRoleInfo)
+      } catch (authError) {
+        console.warn('⚠️ 获取用户角色失败（可能token延迟写入）:', authError)
+        // 不阻断登录，使用默认信息
+        userInfo.value = { role: 'user' }
+        setUserInfo(userInfo.value)
+      }
       
-      // 保存用户信息
-      userInfo.value = userRoleInfo
-      setUserInfo(userRoleInfo)
+      // 🆕 尝试获取完整用户信息（不阻断登录流程）
+      try {
+        const fullUserInfo = await getUserInfoApi()
+        console.log('📋 获取完整用户信息成功:', fullUserInfo)
+        
+        // 合并完整信息
+        userInfo.value = {
+          ...userInfo.value,
+          ...fullUserInfo
+        }
+        setUserInfo(userInfo.value)
+      } catch (profileError) {
+        console.warn('⚠️ 获取完整用户信息失败（不影响登录）:', profileError)
+        // 不影响登录流程，继续使用角色信息
+      }
       
-      return userRoleInfo
+      return userInfo.value
     } catch (error) {
       // 登录失败，清理数据
       token.value = ''
@@ -75,12 +101,16 @@ export const useUserStore = defineStore('user', () => {
   const restoreAuth = () => {
     const savedToken = uni.getStorageSync('token')
     const savedUserInfo = uni.getStorageSync('userInfo')
-    
-    if (savedToken && savedUserInfo) {
+
+    if (savedToken) {
       token.value = savedToken
-      userInfo.value = savedUserInfo
+      // 如果本地存在 userInfo，则恢复；否则保留为 null，后续会通过 checkAuth 补全
+      if (savedUserInfo) {
+        userInfo.value = savedUserInfo
+      }
       return true
     }
+
     return false
   }
   
@@ -95,6 +125,21 @@ export const useUserStore = defineStore('user', () => {
       // 更新用户信息
       userInfo.value = userRoleInfo
       setUserInfo(userRoleInfo)
+      
+      // 🆕 尝试获取完整用户信息（不阻断验证流程）
+      try {
+        const fullUserInfo = await getUserInfoApi()
+        console.log('📋 验证登录态时获取完整用户信息成功:', fullUserInfo)
+        
+        // 合并完整信息
+        userInfo.value = {
+          ...userInfo.value,
+          ...fullUserInfo
+        }
+        setUserInfo(userInfo.value)
+      } catch (profileError) {
+        console.warn('⚠️ 获取完整用户信息失败（不影响验证）:', profileError)
+      }
       
       return userRoleInfo
     } catch (error) {

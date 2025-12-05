@@ -7,16 +7,40 @@
 // 从环境变量读取 API 基础地址
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
+// 🔓 公开接口列表（无需 token）
+const PUBLIC_APIS = [
+  '/patient/hospitals',              // 获取院区列表
+  '/patient/major-departments',      // 获取大科室
+  '/patient/minor-departments',      // 获取小科室
+  '/patient/clinics',                // 获取门诊
+  '/patient/doctors',                // 获取医生
+  '/patient/hospitals/schedules',    // 获取排班（关键！）
+  '/patient/departments/',           // 按科室获取排班
+  '/patient/doctors/',               // 按医生获取排班
+  '/patient/clinics/',               // 按门诊获取排班
+  '/auth/register',                  // 注册
+  '/auth/patient/login',             // 登录
+]
+
+/**
+ * 判断是否为公开接口
+ */
+const isPublicApi = (url) => {
+  return PUBLIC_APIS.some(api => url.includes(api))
+}
+
 /**
  * 请求拦截器
  */
 const requestInterceptor = (config) => {
-  // 从本地存储获取 token
-  const token = uni.getStorageSync('token')
-  if (token) {
-    config.header = {
-      ...config.header,
-      'Authorization': `Bearer ${token}`
+  // 🔑 只有非公开接口才注入 token
+  if (!isPublicApi(config.url)) {
+    const token = uni.getStorageSync('token')
+    if (token) {
+      config.header = {
+        ...config.header,
+        'Authorization': `Bearer ${token}`
+      }
     }
   }
   return config
@@ -37,12 +61,21 @@ const responseInterceptor = (response) => {
     } 
     
     // ❌ 业务错误: code 非0
-    const errorMsg = typeof data.message === 'string' 
-      ? data.message 
-      : JSON.stringify(data.message) || '操作失败'
+    let errorMsg = '操作失败'
     
-    // 根据错误码进行不同处理
+    // 解析错误消息（支持多层嵌套）
+    if (typeof data.message === 'string') {
+      errorMsg = data.message
+    } else if (data.message && typeof data.message === 'object') {
+      // 处理嵌套对象: { error: "...", msg: "..." }
+      errorMsg = data.message.msg || data.message.error || data.message.message || JSON.stringify(data.message)
+    }
+
+    // 根据错误码进行不同处理（业务层可能会额外处理某些 code）
     switch (data.code) {
+      case 101:
+        // 认证异常（包括封禁）- 不自动Toast，由业务层处理
+        break
       case 400:
         // 参数错误/注册手机号重复 - 不自动Toast，由业务层处理
         break
@@ -50,15 +83,18 @@ const responseInterceptor = (response) => {
         // 账号封禁 - 不自动Toast，由业务层处理（需要显示详细信息）
         break
       default:
-        // 其他错误统一Toast提示
+        // 其他错误统一Toast提示（友好提示）
         uni.showToast({
-          title: errorMsg,
+          title: errorMsg || '操作失败',
           icon: 'none',
           duration: 2000
         })
     }
-    
-    return Promise.reject({ code: data.code, message: errorMsg })
+
+    const err = new Error(errorMsg)
+    err.code = data.code
+    err.data = data
+    return Promise.reject(err)
   }
   
   // 401 未授权 - token无效或过期
@@ -80,14 +116,19 @@ const responseInterceptor = (response) => {
       })
     }, 1500)
     
-    return Promise.reject({ code: 401, message: '未授权，请重新登录' })
+    const err = new Error('未授权，请重新登录')
+    err.code = 401
+    return Promise.reject(err)
   }
   
   // 403 禁止访问（可能是封禁或权限不足）
   if (statusCode === 403) {
     const errorMsg = data?.message || '没有权限访问'
     // 不自动Toast，让业务层处理（封禁信息需要弹窗显示详细内容）
-    return Promise.reject({ code: 403, message: errorMsg })
+    const err = new Error(errorMsg)
+    err.code = 403
+    err.data = data
+    return Promise.reject(err)
   }
   
   // 其他HTTP错误统一处理
@@ -101,14 +142,16 @@ const responseInterceptor = (response) => {
   }
   
   const errorMsg = errorMessages[statusCode] || `请求失败 (${statusCode})`
-  
+
   uni.showToast({
     title: errorMsg,
     icon: 'none',
     duration: 2000
   })
-  
-  return Promise.reject({ code: statusCode, message: errorMsg })
+
+  const err = new Error(errorMsg)
+  err.code = statusCode
+  return Promise.reject(err)
 }
 
 /**
@@ -128,9 +171,13 @@ const request = (options) => {
   })
   
   return new Promise((resolve, reject) => {
+    // 打印请求信息，便于在小程序调试器中查看是否发起请求及目标 URL
+    console.log('[HTTP] Request ->', config.method, config.url)
+
     uni.request({
       ...config,
       success: (response) => {
+        console.log('[HTTP] Response status:', response.statusCode, 'url:', config.url)
         try {
           const result = responseInterceptor(response)
           resolve(result)
@@ -139,6 +186,9 @@ const request = (options) => {
         }
       },
       fail: (error) => {
+        // 在控制台打印原始 errMsg，帮助定位微信开发者工具被阻止或域名问题
+        console.error('[HTTP] Request failed ->', config.method, config.url, error && error.errMsg)
+
         let errorMsg = '网络请求失败'
         
         if (error.errMsg) {
@@ -151,7 +201,7 @@ const request = (options) => {
           }
         }
         
-        // 统一Toast提示网络错误
+        // 统一Toast提示网络错误（业务层仍可捕获 Error）
         uni.showToast({
           title: errorMsg,
           icon: 'none',
@@ -204,4 +254,3 @@ export default {
     })
   }
 }
-

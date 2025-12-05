@@ -23,21 +23,22 @@
             <text class="patient-name">{{ patient.name }}</text>
             <view class="patient-tags">
               <text class="tag default" v-if="patient.isDefault">默认</text>
-              <text class="tag" :class="patient.type">{{ getPatientTypeText(patient.type) }}</text>
+              <text class="tag relation">{{ patient.relation || patient.relationType }}</text>
             </view>
           </view>
           <view class="patient-details">
-            <text class="detail-item">身份证：{{ maskIdCard(patient.idCard) }}</text>
-            <text class="detail-item">手机号：{{ patient.phone }}</text>
-            <text class="detail-item">关系：{{ patient.relation }}</text>
+            <text class="detail-item" v-if="patient.identifier">学号/工号：{{ patient.identifier }}</text>
+            <text class="detail-item">身份证：{{ patient.idCard || '未填写' }}</text>
+            <text class="detail-item" v-if="patient.phone">手机号：{{ patient.phone }}</text>
+            <text class="detail-item">关系：{{ patient.relation || patient.relationType }}</text>
           </view>
         </view>
         <view class="patient-actions">
           <view class="action-btn edit" @tap.stop="editPatient(patient)">
-            <Edit2 :size="14" color="#00BFCC" />
+            <text class="btn-text">编辑</text>
           </view>
           <view class="action-btn delete" @tap.stop="deletePatient(patient)" v-if="!patient.isDefault">
-            <Trash2 :size="14" color="#ef4444" />
+            <text class="btn-text">删除</text>
           </view>
         </view>
       </view>
@@ -86,11 +87,11 @@
           </view>
           
           <view class="input-group">
-            <text class="input-label">手机号 *</text>
+            <text class="input-label">手机号</text>
             <input 
               class="input-field" 
               type="text" 
-              placeholder="请输入手机号"
+              placeholder="请输入手机号（可选）"
               v-model="formData.phone"
             />
           </view>
@@ -131,29 +132,15 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-// 已全部改用 uni-icons
+import { 
+  getPatients, 
+  addPatient as addPatientApi, 
+  updatePatient as updatePatientApi, 
+  deletePatient as deletePatientApi 
+} from '@/api/user'
 
 // 就诊人列表
-const patients = ref([
-  {
-    id: 1,
-    name: '张三',
-    idCard: '110101199001011234',
-    phone: '13800138000',
-    relation: '本人',
-    type: 'student',
-    isDefault: true
-  },
-  {
-    id: 2,
-    name: '李四',
-    idCard: '110101199002022345',
-    phone: '13800138001',
-    relation: '家属',
-    type: 'family',
-    isDefault: false
-  }
-])
+const patients = ref([])
 
 // 关系选项
 const relations = ref(['本人', '父母', '配偶', '子女', '其他'])
@@ -184,11 +171,66 @@ const getPatientTypeText = (type) => {
 
 // 身份证脱敏
 const maskIdCard = (idCard) => {
+  if (!idCard) return ''
   return idCard.replace(/(\d{6})\d{8}(\d{4})/, '$1****$2')
 }
 
-// 添加就诊人
+// 解析后端错误信息为友好字符串
+const parseApiError = (error) => {
+  if (!error) return '操作失败'
+  let msg = ''
+  if (error.message) {
+    try {
+      if (typeof error.message === 'string' && error.message.startsWith('{')) {
+        const parsed = JSON.parse(error.message)
+        msg = parsed.msg || parsed.error || error.message
+      } else if (typeof error.message === 'object' && error.message.msg) {
+        msg = error.message.msg
+      } else {
+        msg = error.message
+      }
+    } catch (e) {
+      msg = error.message
+    }
+  } else if (typeof error === 'string') {
+    msg = error
+  } else if (error.msg) {
+    msg = error.msg
+  } else {
+    msg = '操作失败'
+  }
+  return msg
+}
+
+// 加载就诊人列表
+const loadPatients = async () => {
+  try {
+    uni.showLoading({ title: '加载中...' })
+    const data = await getPatients()
+    console.log('加载就诊人数据:', data)
+    patients.value = data || []
+    uni.hideLoading()
+  } catch (error) {
+    console.error('加载就诊人失败:', error)
+    uni.hideLoading()
+    uni.showToast({
+      title: error.message || '加载失败',
+      icon: 'none'
+    })
+  }
+}
+
+// 添加就诊人（打开弹窗）
 const addPatient = () => {
+  // 检查就诊人数量限制
+  if (patients.value.length >= 6) {
+    uni.showToast({
+      title: '最多只能添加6个就诊人',
+      icon: 'none'
+    })
+    return
+  }
+  
   // 重置表单
   Object.assign(formData, {
     name: '',
@@ -201,26 +243,54 @@ const addPatient = () => {
   showAddModal.value = true
 }
 
-// 编辑就诊人
+// 编辑就诊人（打开弹窗）
 const editPatient = (patient) => {
-  Object.assign(formData, patient)
+  Object.assign(formData, {
+    name: patient.name,
+    idCard: patient.idCard,
+    phone: patient.phone,
+    relation: patient.relation || patient.relationType,
+    isDefault: patient.isDefault
+  })
   editingPatient.value = patient
   showAddModal.value = true
 }
 
 // 删除就诊人
 const deletePatient = (patient) => {
+  if (patient.isDefault) {
+    uni.showToast({
+      title: '默认就诊人不能删除',
+      icon: 'none'
+    })
+    return
+  }
+  
   uni.showModal({
     title: '删除就诊人',
     content: `确定要删除就诊人"${patient.name}"吗？`,
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        const index = patients.value.findIndex(p => p.id === patient.id)
-        if (index > -1) {
-          patients.value.splice(index, 1)
+        try {
+          uni.showLoading({ title: '删除中...' })
+          console.log('尝试删除就诊人，relationId:', patient.id, 'patientId:', patient.patientId)
+          // 后端 API 要求的 patient_id 是被添加的患者 ID（related_patient_id），
+          // 前端列表中映射为 patient.patientId
+          await deletePatientApi(patient.patientId)
+          uni.hideLoading()
           uni.showToast({
             title: '删除成功',
             icon: 'success'
+          })
+          // 重新加载数据
+          loadPatients()
+        } catch (error) {
+          uni.hideLoading()
+          const msg = parseApiError(error)
+          console.error('删除就诊人失败:', error)
+          uni.showToast({
+            title: msg || '删除失败',
+            icon: 'none'
           })
         }
       }
@@ -229,41 +299,76 @@ const deletePatient = (patient) => {
 }
 
 // 保存就诊人
-const savePatient = () => {
-  // 表单验证
-  if (!formData.name.trim()) {
-    uni.showToast({ title: '请输入姓名', icon: 'none' })
-    return
-  }
-  if (!formData.idCard.trim()) {
-    uni.showToast({ title: '请输入身份证号', icon: 'none' })
-    return
-  }
-  if (!formData.phone.trim()) {
-    uni.showToast({ title: '请输入手机号', icon: 'none' })
-    return
+const savePatient = async () => {
+  // 编辑模式：仅更新关系/备注（后端只允许 relation_type 和 remark）
+  if (editingPatient.value) {
+    if (!formData.relation) {
+      uni.showToast({ title: '请选择关系', icon: 'none' })
+      return
+    }
+  } else {
+    // 添加模式：表单验证
+    if (!formData.name.trim()) {
+      uni.showToast({ title: '请输入姓名', icon: 'none' })
+      return
+    }
+    if (!formData.idCard.trim()) {
+      uni.showToast({ title: '请输入身份证号', icon: 'none' })
+      return
+    }
+    // 简单验证身份证号格式
+    if (!/^\d{17}[\dXx]$/.test(formData.idCard)) {
+      uni.showToast({ title: '身份证号格式不正确', icon: 'none' })
+      return
+    }
+    // 如果填写手机号则校验
+    if (formData.phone.trim() && !/^1[3-9]\d{9}$/.test(formData.phone)) {
+      uni.showToast({ title: '手机号格式不正确', icon: 'none' })
+      return
+    }
   }
 
-  if (editingPatient.value) {
-    // 编辑现有就诊人
-    Object.assign(editingPatient.value, formData)
-    uni.showToast({ title: '修改成功', icon: 'success' })
-  } else {
-    // 添加新就诊人
-    const newPatient = {
-      id: Date.now(),
-      ...formData,
-      type: 'student' // 默认学生类型
+  try {
+    uni.showLoading({ title: editingPatient.value ? '保存中...' : '添加中...' })
+
+    if (editingPatient.value) {
+      // 仅发送后端允许的字段（使用前端 API 定义的 camelCase）
+      const requestData = {}
+      if (formData.relation) requestData.relationType = formData.relation
+      if (formData.remark !== undefined) requestData.remark = formData.remark
+
+      console.log('更新就诊人请求，patientId:', editingPatient.value.patientId, 'data:', requestData)
+      // updatePatient API 会把 relationType 映射为 relation_type 后发送到后端
+      await updatePatientApi(editingPatient.value.patientId, requestData)
+      uni.showToast({ title: '修改成功', icon: 'success' })
+    } else {
+      // 添加新就诊人，按后端要求发送字段（api 会映射）
+      const requestData = {
+        name: formData.name,
+        idCard: formData.idCard,
+        phone: formData.phone,
+        relationType: formData.relation,
+        isDefault: formData.isDefault
+      }
+      console.log('添加就诊人数据:', requestData)
+      await addPatientApi(requestData)
+      uni.showToast({ title: '添加成功', icon: 'success' })
     }
-    patients.value.push(newPatient)
-    uni.showToast({ title: '添加成功', icon: 'success' })
+
+    uni.hideLoading()
+    showAddModal.value = false
+    await loadPatients()
+  } catch (error) {
+    console.error('保存就诊人失败:', error)
+    uni.hideLoading()
+    const msg = parseApiError(error)
+    uni.showToast({ title: msg || '操作失败', icon: 'none' })
   }
-  
-  showAddModal.value = false
 }
 
 onMounted(() => {
   console.log('就诊人管理页面加载')
+  loadPatients()
 })
 </script>
 
@@ -384,8 +489,7 @@ onMounted(() => {
 }
 
 .action-btn {
-  width: 56rpx;
-  height: 56rpx;
+  padding: 12rpx 20rpx;
   border-radius: 12rpx;
   display: flex;
   align-items: center;
@@ -398,9 +502,21 @@ onMounted(() => {
   border: 1rpx solid #00BFCC;
 }
 
+.action-btn.edit .btn-text {
+  color: #00BFCC;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
 .action-btn.delete {
   background: #fef2f2;
   border: 1rpx solid #ef4444;
+}
+
+.action-btn.delete .btn-text {
+  color: #ef4444;
+  font-size: 24rpx;
+  font-weight: 500;
 }
 
 .action-btn:active {

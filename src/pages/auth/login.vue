@@ -144,16 +144,10 @@ const handleLogin = async () => {
       password: formData.password
     })
     
-    // 保存token
-    uni.setStorageSync('token', token)
+    // 🔄 使用 Store 的 login 方法（会自动获取用户信息）
+    await userStore.login(token)
     
-    // 立即获取用户角色信息
-    try {
-      const userInfo = await userStore.checkAuth()
-      console.log('用户角色:', userInfo.role)
-    } catch (error) {
-      console.warn('获取用户信息失败，但不影响登录:', error)
-    }
+    console.log('✅ 登录成功！用户信息:', userStore.userInfo)
     
     uni.showToast({
       title: '登录成功',
@@ -169,15 +163,12 @@ const handleLogin = async () => {
     }, 1500)
     
   } catch (error) {
-    // 错误处理
-    if (error.code === 403) {
-      // 账号封禁 - 显示详细信息
-      uni.showModal({
-        title: '账号已封禁',
-        content: error.message || '您的账号已被封禁，请联系管理员',
-        showCancel: false,
-        confirmText: '知道了'
-      })
+    console.error('❌ 登录失败:', error)
+    
+    // 错误处理 - 显示在页面上而不是弹窗
+    if (error.code === 101 || error.code === 403) {
+      // 认证异常或账号封禁 - 在表单下方显示红色提示
+      errorMessage.value = error.message || '您的账号已被封禁，请联系管理员'
     } else if (error.code === 401) {
       errorMessage.value = '手机号或密码错误'
     } else if (error.code === 400) {

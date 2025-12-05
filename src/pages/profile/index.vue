@@ -4,9 +4,20 @@
     <view class="user-header">
       <view class="user-info">
         <view class="user-avatar">
-          <text class="avatar-text">张</text>
+          <text class="avatar-text">{{ nameFirstChar }}</text>
         </view>
-        <text class="user-greeting">张三，您好</text>
+        <view class="user-content">
+          <text class="user-greeting">{{ greeting }}</text>
+          <!-- 认证状态标签 -->
+          <view class="verify-badge" v-if="isVerified">
+            <text class="badge-icon">✓</text>
+            <text class="badge-text">已认证 · {{ roleTypeText }}</text>
+          </view>
+          <view class="verify-badge unverified" v-else @tap="goToVerify">
+            <text class="badge-icon">🎓</text>
+            <text class="badge-text">未认证</text>
+          </view>
+        </view>
       </view>
       <view class="account-settings" @tap="goToSettings">
         <text class="settings-text">账号设置</text>
@@ -59,6 +70,19 @@
     <!-- 其他功能 -->
     <view class="other-section">
       <text class="section-title">其他功能</text>
+      <view class="other-item" @tap="goToVerify">
+        <view class="item-icon">
+          <uni-icons type="flag" size="24" color="#00D5D9"></uni-icons>
+        </view>
+        <text class="other-text">校内身份认证</text>
+        <view class="verify-status" v-if="isVerified">
+          <text class="status-text verified">已认证 · {{ roleTypeText }}</text>
+        </view>
+        <view class="verify-status" v-else>
+          <text class="status-text unverified">未认证</text>
+        </view>
+        <text class="item-arrow">›</text>
+      </view>
       <view class="other-item" @tap="goToFeedback">
         <view class="item-icon">
           <uni-icons type="chatbubble" size="24" color="#00D5D9"></uni-icons>
@@ -92,12 +116,59 @@
 </template>
 
 <script setup>
-import { reactive, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { useUserStore } from '@/stores/user'
+import { getUserInfo } from '@/api/user'
 
-// 用户信息
-const userInfo = reactive({
-  name: '张三',
-  studentId: '23301087'
+// 使用 Pinia Store
+const userStore = useUserStore()
+
+// 用户信息（从后端获取）
+const userInfo = ref({
+  realName: '',
+  phone: '',
+  identifier: '',
+  verified: false,
+  idCard: ''
+})
+
+// 是否加载中
+const loading = ref(false)
+
+// 是否已认证（需要同时满足：有identifier且verified为true）
+const isVerified = computed(() => {
+  console.log('🔍 认证状态检查:', {
+    identifier: userInfo.value.identifier,
+    verified: userInfo.value.verified,
+    isVerified: !!(userInfo.value.identifier && userInfo.value.verified)
+  })
+  return !!(userInfo.value.identifier && userInfo.value.verified)
+})
+
+// 角色类型文本（学生/教师/职工）
+const roleTypeText = computed(() => {
+  const typeMap = {
+    '学生': '学生',
+    'student': '学生',
+    '教师': '教师',
+    'teacher': '教师',
+    '职工': '职工',
+    'staff': '职工'
+  }
+  return typeMap[userInfo.value.patientType] || '已认证'
+})
+
+// 计算用户名首字（用于头像）
+const nameFirstChar = computed(() => {
+  const name = userInfo.value.realName || userStore.userName || '用'
+  return name.charAt(0)
+})
+
+// 计算问候语
+const greeting = computed(() => {
+  const name = userInfo.value.realName || userStore.userName || '您'
+  return `${name}，您好`
 })
 
 // 页面跳转函数
@@ -156,27 +227,57 @@ const goToSettings = () => {
   })
 }
 
+const goToVerify = () => {
+  uni.navigateTo({
+    url: '/pages/profile/verify-identity'
+  })
+}
+
+/**
+ * 加载用户信息
+ */
+const loadUserInfo = async () => {
+  try {
+    loading.value = true
+    const result = await getUserInfo()
+    console.log('📱 获取用户信息成功:', result)
+    userInfo.value = result
+  } catch (error) {
+    console.error('❌ 获取用户信息失败:', error)
+    uni.showToast({
+      title: error.message || '获取用户信息失败',
+      icon: 'none'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * 退出登录
+ */
 const logout = () => {
   uni.showModal({
     title: '退出登录',
     content: '确定要退出登录吗？',
     success: (res) => {
       if (res.confirm) {
-        uni.clearStorageSync()
-          uni.reLaunch({
-            url: '/pages/auth/login'
-          })
+        // 使用 Store 的 logout 方法
+        userStore.logout()
       }
     }
   })
 }
 
 onMounted(() => {
-  // 获取登录用户信息
-  const savedUserInfo = uni.getStorageSync('userInfo')
-  if (savedUserInfo) {
-    Object.assign(userInfo, savedUserInfo)
-  }
+  // 页面加载时获取用户信息
+  loadUserInfo()
+})
+
+// 每次页面显示时重新加载用户信息（从认证页面返回时会触发）
+onShow(() => {
+  console.log('个人中心页面显示，重新加载用户信息')
+  loadUserInfo()
 })
 </script>
 
@@ -203,6 +304,10 @@ onMounted(() => {
   flex: 1;
 }
 
+.user-content {
+  flex: 1;
+}
+
 .user-avatar {
   width: 100rpx;
   height: 100rpx;
@@ -223,6 +328,33 @@ onMounted(() => {
 .user-greeting {
   font-size: 32rpx;
   font-weight: 500;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+/* 认证状态标签 */
+.verify-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8rpx 16rpx;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 20rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.4);
+}
+
+.verify-badge.unverified {
+  background: rgba(255, 152, 0, 0.15);
+  border-color: rgba(255, 152, 0, 0.3);
+}
+
+.badge-icon {
+  font-size: 20rpx;
+  margin-right: 6rpx;
+}
+
+.badge-text {
+  font-size: 20rpx;
+  color: white;
 }
 
 .account-settings {
@@ -300,6 +432,27 @@ onMounted(() => {
   font-size: 26rpx;
   color: #374151;
   flex: 1;
+}
+
+/* 认证状态标识 */
+.verify-status {
+  margin-right: 12rpx;
+}
+
+.status-text {
+  font-size: 22rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 12rpx;
+}
+
+.status-text.verified {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.status-text.unverified {
+  background: #FFF3E0;
+  color: #E65100;
 }
 
 .item-arrow {

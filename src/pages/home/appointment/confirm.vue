@@ -207,12 +207,13 @@ const submitAppointment = async () => {
     
     const appointmentData = {
       scheduleId: schedule?.id,
-      hospitalId: appointmentStore.selectedHospital?.id,  // ✅ 添加 hospitalId
-      departmentId: appointmentStore.selectedDepartment?.id,  // ✅ 添加 departmentId
-      slotId: schedule?.id + '_slot_001',  // 时段ID(实际应该从选择的时段获取)
-      patientId: selectedPatient.value.id,
+      hospitalId: appointmentStore.selectedHospital?.id,
+      departmentId: appointmentStore.selectedDepartment?.id,
+      patientId: selectedPatient.value.patientId,  // 🔧 使用 patientId 而不是 id
       symptoms: ''  // 可选的症状描述
     }
+    
+    console.log('📤 提交预约数据:', appointmentData)
     
     const result = await createAppointment(appointmentData)
     
@@ -227,14 +228,14 @@ const submitAppointment = async () => {
       doctorName: schedule?.doctorName || '医生',
       doctorTitle: schedule?.doctorTitle || '',
       scheduleId: schedule?.id,
-      appointmentDate: schedule?.date,
-      appointmentTime: `${schedule?.period} ${schedule?.startTime}-${schedule?.endTime}`,
+      appointmentDate: result.appointmentDate || schedule?.date,
+      appointmentTime: result.appointmentTime || `${schedule?.period} ${schedule?.startTime}-${schedule?.endTime}`,
       patientName: selectedPatient.value.name,
-      patientId: selectedPatient.value.id,
+      patientId: selectedPatient.value.patientId,  // 🔧 使用 patientId
       queueNumber: result.queueNumber,
-      price: appointmentInfo.price,
-      status: 'pending',
-      paymentStatus: 'pending',  // 支付状态:待支付
+      price: result.payAmount || appointmentInfo.price,
+      status: result.status || 'pending',
+      paymentStatus: result.paymentStatus || 'pending',
       canCancel: true,
       canReschedule: true,
       createdAt: new Date().toISOString()

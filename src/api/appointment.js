@@ -11,42 +11,187 @@ import { mockWaitlist } from '@/pages/home/waitlist/waitlist-mock'
 import { mockAppointments, mockPatients } from '@/pages/profile/user-mock'
 
 // 是否使用 Mock 数据
-const USE_MOCK = true  // ← 开发阶段使用 Mock 数据
+const USE_MOCK = false  // ← 已对接后端真实接口
+
+/**
+ * 根据当前日期动态调整 Mock 预约数据
+ * 这样确保 Mock 数据中的日期始终相对于当前时间是合理的
+ */
+const adjustMockAppointmentsDates = (appointments) => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  return appointments.map(appointment => {
+    const appointmentDate = new Date(appointment.appointmentDate)
+    const diffDays = Math.floor((appointmentDate - today) / (1000 * 60 * 60 * 24))
+    
+    // 根据原始日期与当前日期的差值来判断状态
+    let newDate = new Date(today)
+    let status = appointment.status
+    let canCancel = appointment.canCancel
+    let canReschedule = appointment.canReschedule
+    
+    // 如果原始数据是未来日期（pending状态）
+    if (status === 'pending' && diffDays >= 0) {
+      // 保持为未来日期（今天+2天或今天+5天等）
+      newDate.setDate(today.getDate() + Math.max(2, diffDays))
+      canCancel = true
+      canReschedule = true
+    }
+    // 如果原始数据是过去日期（completed或cancelled状态）
+    else if ((status === 'completed' || status === 'cancelled') && diffDays < 0) {
+      // 保持为过去日期
+      newDate.setDate(today.getDate() + Math.min(-1, diffDays))
+      canCancel = false
+      canReschedule = false
+    }
+    // 如果数据状态与日期不匹配，按状态调整
+    else if (status === 'pending') {
+      newDate.setDate(today.getDate() + 2)
+      canCancel = true
+      canReschedule = true
+    } else {
+      newDate.setDate(today.getDate() - 3)
+      canCancel = false
+      canReschedule = false
+    }
+    
+    return {
+      ...appointment,
+      appointmentDate: newDate.toISOString().split('T')[0],
+      status,
+      canCancel,
+      canReschedule
+    }
+  })
+}
 
 // ==================== 医院相关 ====================
 
 /**
- * 获取医院列表
- * @returns {Promise} 返回医院列表
- * Response: { code: 0, message: "success", data: [...] }
+ * 获取医院列表（院区列表）
+ * @param {String} areaId - 可选，指定院区ID
+ * @returns {Promise} 返回院区列表
+ * Response: { code: 0, message: { areas: [...] } }
  */
-export const getHospitals = () => {
+export const getHospitals = (areaId) => {
   if (USE_MOCK) {
     return Promise.resolve(mockHospitals)
   }
-  return request.get('/patient/hospitals')
+  const params = areaId ? { area_id: areaId } : {}
+  return request.get('/patient/hospitals', params).then(response => {
+    // 后端返回 { areas: [...] }，提取并映射字段
+    const areas = response.areas || []
+    return areas.map(area => ({
+      id: area.area_id,                    // area_id → id
+      name: area.name,                      // name 保持
+      level: '三甲',                        // 后端暂无该字段，给默认值
+      type: '综合医院',                     // 后端暂无该字段，给默认值
+      address: area.destination,            // destination → address
+      image: area.image_data               // image_data → image (base64)
+        ? `data:${area.image_type || 'image/jpeg'};base64,${area.image_data}`
+        : '/static/hospital-default.png',  // 默认图片
+      distance: 0,                          // 后端暂无距离计算
+      isOpen: true,                         // 默认营业
+      departmentCount: 0,                   // 后端暂无
+      doctorCount: 0,                       // 后端暂无
+      availableSlots: 0,                    // 后端暂无
+      latitude: area.latitude,              // 保留原始数据
+      longitude: area.longitude             // 保留原始数据
+    }))
+  })
 }
 
 /**
- * 获取科室列表
- * @param {String} hospitalId - 医院ID
- * @returns {Promise} 返回科室列表
- * Response: { code: 0, message: "success", data: [...] }
+ * 获取大科室列表
+ * @returns {Promise} 返回大科室列表
+ * Response: { code: 0, message: { departments: [...] } }
  */
-export const getDepartments = (hospitalId) => {
+export const getMajorDepartments = () => {
+  if (USE_MOCK) {
+    // Mock 没有大科室概念，返回空数组
+    return Promise.resolve([])
+  }
+  return request.get('/patient/major-departments').then(response => {
+    // 后端返回 { departments: [...] }
+    return response.departments || []
+  })
+}
+
+/**
+ * 获取科室列表（小科室列表）
+ * @param {String} hospitalId - 医院ID（可选，用于前端过滤）
+ * @param {String} majorDeptId - 大科室ID（可选）
+ * @returns {Promise} 返回小科室列表
+ * Response: { code: 0, message: { total, page, page_size, departments: [...] } }
+ */
+export const getDepartments = (hospitalId, majorDeptId) => {
   if (USE_MOCK) {
     // 根据医院ID过滤科室
     const filtered = mockDepartments.filter(dept => dept.hospitalId === hospitalId)
     return Promise.resolve(filtered)
   }
-  return request.get(`/patient/hospitals/${hospitalId}/departments`)
+  const params = {}
+  if (majorDeptId) params.major_dept_id = majorDeptId
+  // 获取所有小科室，前端按需过滤
+  return request.get('/patient/minor-departments', params).then(response => {
+    // 后端返回 { total, page, page_size, departments }
+    // 前端需要的是数组，所以返回 departments
+    return response.departments || []
+  })
+}
+
+/**
+ * 获取门诊列表
+ * @param {Object} params - 查询参数 { dept_id, area_id, page, page_size }
+ * @returns {Promise} 返回门诊列表
+ * Response: { code: 0, message: { total, page, page_size, clinics: [...] } }
+ */
+export const getClinics = (params = {}) => {
+  if (USE_MOCK) {
+    // Mock 没有门诊概念，返回空数组
+    return Promise.resolve([])
+  }
+  const apiParams = {
+    page: params.page || 1,
+    page_size: params.page_size || 50
+  }
+  if (params.dept_id) apiParams.dept_id = params.dept_id
+  if (params.area_id) apiParams.area_id = params.area_id
+  
+  return request.get('/patient/clinics', apiParams).then(response => {
+    return response.clinics || []
+  })
+}
+
+/**
+ * 获取医生列表
+ * @param {Object} params - 查询参数 { dept_id, name, page, page_size }
+ * @returns {Promise} 返回医生列表
+ * Response: { code: 0, message: { total, page, page_size, doctors: [...] } }
+ */
+export const getDoctors = (params = {}) => {
+  if (USE_MOCK) {
+    // Mock 没有单独的医生列表，返回空数组
+    return Promise.resolve([])
+  }
+  const apiParams = {
+    page: params.page || 1,
+    page_size: params.page_size || 50
+  }
+  if (params.dept_id) apiParams.dept_id = params.dept_id
+  if (params.name) apiParams.name = params.name
+  
+  return request.get('/patient/doctors', apiParams).then(response => {
+    return response.doctors || []
+  })
 }
 
 /**
  * 获取医生排班列表
  * @param {Object} params - 查询参数 { hospitalId, departmentId, date }
  * @returns {Promise} 返回排班列表
- * Response: { code: 0, message: "success", data: [...] }
+ * Response: { code: 0, message: [...] }
  */
 export const getDoctorSchedules = (params) => {
   if (USE_MOCK) {
@@ -63,14 +208,98 @@ export const getDoctorSchedules = (params) => {
     
     return Promise.resolve(filtered)
   }
-  return request.get('/patient/schedules', params)
+  // 后端接口使用不同的参数名
+  const apiParams = {}
+  if (params.hospitalId) apiParams.hospitalId = params.hospitalId
+  if (params.departmentId) apiParams.departmentId = params.departmentId
+  if (params.date) apiParams.date = params.date
+  
+  return request.get('/patient/hospitals/schedules', apiParams).then(response => {
+    // 后端可能返回 { schedules: [...] } 或直接返回数组
+    const schedules = response.schedules || response || []
+    
+    // 🔑 映射后端字段到前端期望的格式
+    const mappedSchedules = schedules.map(schedule => {
+      // 🔑 映射门诊类型：根据 clinic_type 和 slot_type
+      // 后端定义：clinic_type: 0-普通门诊, 1-国疗门诊, 2-特需门诊
+      // 后端定义：slot_type: "普通", "专家", "特需"
+      
+      let type = 'normal'  // 默认普通门诊
+      
+      // 优先根据 clinic_type 判断（门诊本身的性质）
+      if (schedule.clinic_type === 1) {
+        type = 'international'  // 国疗门诊
+      } else if (schedule.clinic_type === 2) {
+        type = 'expert'  // 特需门诊
+      } else if (schedule.clinic_type === 0) {
+        // 普通门诊，但可能是专家号
+        if (schedule.slot_type === '专家' || schedule.slot_type === '特需') {
+          type = 'expert'  // 普通门诊的专家号也归为"专家/特需"类别
+        }
+      }
+      
+      const mapped = {
+        // 基本信息
+        id: schedule.schedule_id || schedule.id,
+        doctorId: schedule.doctor_id,
+        doctorName: schedule.doctor_name,
+        doctorTitle: schedule.doctor_title || schedule.title,
+        doctorAvatar: schedule.doctor_avatar || '/static/logo.png',
+        
+        // 科室和医院信息
+        departmentId: schedule.minor_dept_id || schedule.department_id,
+        departmentName: schedule.minor_dept_name || schedule.department_name,
+        hospitalId: schedule.area_id || schedule.hospital_id,
+        hospitalName: schedule.area_name || schedule.hospital_name,
+        
+        // 时间信息
+        date: schedule.schedule_date || schedule.date,
+        period: schedule.time_section || schedule.period || '上午',  // 上午/下午/晚间
+        startTime: schedule.start_time,
+        endTime: schedule.end_time,
+        weekDay: schedule.week_day,
+        
+        // 号源信息
+        totalSlots: schedule.total_slots || 0,
+        remainingSlots: schedule.remaining_slots || 0,
+        status: schedule.status,
+        
+        // 🔑 门诊类型（关键字段！）
+        type: type,  // 映射后的类型：normal/expert/international
+        slotType: schedule.slot_type,  // 保留原始值：普通/专家/特需
+        appointmentType: schedule.clinic_name || '普通门诊',
+        price: schedule.price || 50,
+        
+        // 门诊信息
+        clinicId: schedule.clinic_id,
+        clinicName: schedule.clinic_name,
+        clinicType: schedule.clinic_type  // 保留原始值：0/2/3
+      }
+      
+      return mapped
+    })
+    
+    // 统计映射后的 type 分布（用于验证）
+    const mappedTypeStats = {}
+    mappedSchedules.forEach(s => {
+      mappedTypeStats[s.type] = (mappedTypeStats[s.type] || 0) + 1
+    })
+    console.log('✅ 排班数据映射完成:', {
+      总数: mappedSchedules.length,
+      普通门诊: mappedTypeStats.normal || 0,
+      '专家/特需': mappedTypeStats.expert || 0,
+      国疗门诊: mappedTypeStats.international || 0
+    })
+    
+    return mappedSchedules
+  })
 }
 
 /**
  * 创建预约
- * @param {Object} data - 预约信息
+ * @param {Object} data - 预约信息 { scheduleId, hospitalId, departmentId, patientId, symptoms }
  * @returns {Promise} 返回预约结果
- * Response: { code: 0, message: "success", data: {...} }
+ * Response: { code: 0, message: { id, orderNo, queueNumber, needPay, payAmount, ... } }
  */
 export const createAppointment = (data) => {
   if (USE_MOCK) {
@@ -82,26 +311,52 @@ export const createAppointment = (data) => {
       needPay: true,
       payAmount: 50,
       appointmentDate: data.date || '2024-11-10',
-      appointmentTime: data.time || '上午 08:00-08:30'
+      appointmentTime: data.time || '上午 08:00-08:30',
+      status: 'pending',
+      paymentStatus: 'pending'
     }
     return Promise.resolve(result)
   }
-  return request.post('/patient/appointments', data)
+  
+  // 后端 API 参数（完全按照 Swagger 文档）
+  const apiData = {
+    scheduleId: data.scheduleId,      // 必填：排班ID
+    hospitalId: data.hospitalId,      // 必填：医院ID（院区ID）
+    departmentId: data.departmentId,  // 必填：科室ID
+    patientId: data.patientId,        // 必填：患者ID（本人或就诊人的patientId）
+    symptoms: data.symptoms || ''     // 可选：症状描述
+  }
+  
+  console.log('📤 创建预约请求参数:', apiData)
+  
+  return request.post('/patient/appointments', apiData).then(response => {
+    console.log('📥 创建预约响应:', response)
+    
+    // 后端返回格式：
+    // {
+    //   id, orderNo, queueNumber, needPay, payAmount,
+    //   appointmentDate, appointmentTime, status, paymentStatus
+    // }
+    return response
+  })
 }
 
 /**
  * 获取我的预约列表
  * @param {Object} params - 查询参数 { status, page, pageSize }
  * @returns {Promise} 返回预约列表
- * Response: { code: 0, message: "success", data: { total, list } }
+ * Response: { code: 0, message: { total, page, pageSize, list } }
  */
-export const getMyAppointments = (params) => {
+export const getMyAppointments = (params = {}) => {
   if (USE_MOCK) {
     // 🔧 FIXED: 从本地存储读取用户创建的预约 + 预定义的 Mock 数据合并
     const storedAppointments = uni.getStorageSync('myAppointments') || []
     
+    // 动态调整 Mock 数据的日期，使其相对于当前时间合理
+    const adjustedMockAppointments = adjustMockAppointmentsDates(mockAppointments)
+    
     // 合并本地存储和 Mock 数据（本地存储优先）
-    let allAppointments = [...storedAppointments, ...mockAppointments]
+    let allAppointments = [...storedAppointments, ...adjustedMockAppointments]
     
     // 去重：如果同一个 ID 既在本地存储又在 Mock 数据中，只保留本地存储的
     const appointmentMap = new Map()
@@ -130,13 +385,139 @@ export const getMyAppointments = (params) => {
       list: filtered.slice(start, end)
     })
   }
-  return request.get('/patient/appointments', params)
+  // 后端接口参数
+  // 将前端状态映射为后端期望的状态值（避免筛选不匹配）
+  const clientToBackendStatus = {
+    pending: 'confirmed',
+    completed: 'finished',
+    cancelled: 'cancelled'
+  }
+
+  const apiParams = {
+    page: params.page || 1,
+    pageSize: params.pageSize || 10
+  }
+  if (params.status && params.status !== 'all') {
+    apiParams.status = clientToBackendStatus[params.status] || params.status
+  }
+  
+  return request.get('/patient/appointments', apiParams).then(response => {
+    // 🔧 修复：映射后端状态到前端状态
+    // 后端: confirmed/finished/cancelled → 前端: pending/completed/cancelled
+    const statusMap = {
+      'confirmed': 'pending',    // 已确认 → 待就诊
+      'finished': 'completed',   // 已完成 → 已完成
+      'cancelled': 'cancelled'   // 已取消 → 已取消
+    }
+    
+    // 映射列表中的每个预约记录
+    if (response && response.list) {
+      response.list = response.list.map(appointment => {
+        const mappedStatus = statusMap[appointment.status] || appointment.status
+        
+        // 判断预约日期是否在未来
+        const appointmentDate = new Date(appointment.appointmentDate)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)  // 重置为当天0点
+        appointmentDate.setHours(0, 0, 0, 0)
+        
+        const isPastAppointment = appointmentDate < today  // 过去的日期
+        const isFutureAppointment = appointmentDate >= today  // 今天或未来
+        
+        // 🔧 修复：过去的confirmed状态应该自动转为completed
+        let finalStatus = mappedStatus
+        if (isPastAppointment && mappedStatus === 'pending') {
+          finalStatus = 'completed'  // 过去的待就诊自动变为已完成
+        }
+        
+        // 判断是否可取消/改约（只有未来的待就诊预约才能操作）
+        const canCancel = finalStatus === 'pending' && isFutureAppointment
+        const canReschedule = finalStatus === 'pending' && isFutureAppointment
+        
+        return {
+          ...appointment,
+          status: finalStatus,
+          canCancel,
+          canReschedule
+        }
+      })
+    }
+    
+    return response
+  })
+}
+
+/**
+ * 获取我创建的预约（包括为他人代约的）
+ * @param {Object} params - 查询参数 {status, page, pageSize}
+ * @returns {Promise} 返回预约列表 {total, list}
+ */
+export const getMyInitiatedAppointments = (params = {}) => {
+  if (USE_MOCK) {
+    // Mock模式下返回相同数据
+    return getMyAppointments(params)
+  }
+  
+  // 后端接口参数
+  const clientToBackendStatus = {
+    pending: 'confirmed',
+    completed: 'finished',
+    cancelled: 'cancelled'
+  }
+
+  const apiParams = {
+    page: params.page || 1,
+    pageSize: params.pageSize || 10
+  }
+  if (params.status && params.status !== 'all') {
+    apiParams.status = clientToBackendStatus[params.status] || params.status
+  }
+  
+  return request.get('/patient/my-initiated-appointments', apiParams).then(response => {
+    // 状态映射和数据处理逻辑与getMyAppointments相同
+    const statusMap = {
+      'confirmed': 'pending',
+      'finished': 'completed',
+      'cancelled': 'cancelled'
+    }
+    
+    if (response && response.list) {
+      response.list = response.list.map(appointment => {
+        const mappedStatus = statusMap[appointment.status] || appointment.status
+        
+        const appointmentDate = new Date(appointment.appointmentDate)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        appointmentDate.setHours(0, 0, 0, 0)
+        
+        const isPastAppointment = appointmentDate < today
+        const isFutureAppointment = appointmentDate >= today
+        
+        let finalStatus = mappedStatus
+        if (isPastAppointment && mappedStatus === 'pending') {
+          finalStatus = 'completed'
+        }
+        
+        const canCancel = finalStatus === 'pending' && isFutureAppointment
+        const canReschedule = finalStatus === 'pending' && isFutureAppointment
+        
+        return {
+          ...appointment,
+          status: finalStatus,
+          canCancel,
+          canReschedule
+        }
+      })
+    }
+    
+    return response
+  })
 }
 
 /**
  * 取消预约
  * @param {String} appointmentId - 预约ID
- * @returns {Promise} 是否成功
+ * @returns {Promise} 返回取消结果 { success, refundAmount }
  */
 export const cancelAppointment = (appointmentId) => {
   if (USE_MOCK) {
@@ -171,7 +552,7 @@ export const cancelAppointment = (appointmentId) => {
         uni.setStorageSync('myAppointments', updatedAppointments)
       }
     }
-    return Promise.resolve(true)
+    return Promise.resolve({ success: true, refundAmount: 0 })
   }
   return request.put(`/patient/appointments/${appointmentId}/cancel`)
 }

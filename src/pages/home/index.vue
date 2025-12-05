@@ -24,17 +24,17 @@
     <view class="user-info-section" @tap="goToLogin">
       <view class="user-info">
         <view class="user-avatar">
-          <text class="avatar-text">{{ userInfo.name?.charAt(0) || '用' }}</text>
+          <text class="avatar-text">{{ userAvatar }}</text>
         </view>
         <view class="user-details">
           <text class="user-name">{{ userInfo.name || '未登录' }}</text>
-          <text class="user-id">{{ userInfo.studentId || '061651734' }}</text>
+          <text class="user-id">{{ userInfo.studentId || '点击登录' }}</text>
         </view>
       </view>
-      <view class="switch-account" @tap="switchAccount">
-        <text class="switch-text">切换</text>
+      <view class="switch-account" @tap.stop="switchAccount">
+        <text class="switch-text">{{ isLoggedIn ? '切换' : '登录' }}</text>
       </view>
-      <view class="qr-code" @tap="showQRCode">
+      <view class="qr-code" @tap.stop="showQRCode">
         <text class="qr-text">点击出示</text>
       </view>
     </view>
@@ -135,13 +135,42 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { useUserStore } from '@/stores/user'
 
-// 用户信息
-const userInfo = reactive({
-  name: null,
-  studentId: null
+// 使用 Pinia Store
+const userStore = useUserStore()
+
+// 用户信息（从 Store 获取）
+const userInfo = computed(() => {
+  if (!userStore.isLoggedIn) {
+    return {
+      name: '',
+      studentId: '',
+      avatar: ''
+    }
+  }
+  
+  // 从 store 中获取完整用户信息
+  const ui = userStore.userInfo || {}
+  return {
+    name: ui.realName || ui.name || '',
+    studentId: ui.studentId || ui.phonenumber || ui.identifier || '',
+    avatar: ui.avatar || ''
+  }
 })
+
+// 用户头像首字
+const userAvatar = computed(() => {
+  if (userInfo.value.name) {
+    return userInfo.value.name.charAt(0)
+  }
+  return '用'
+})
+
+// 是否已登录（直接使用 store 的响应式属性）
+const isLoggedIn = computed(() => !!userStore.isLoggedIn)
 
 // 页面跳转
 const navigateTo = (url) => {
@@ -152,7 +181,7 @@ const navigateTo = (url) => {
 
 // 如果未登录，跳转到登录页
 const goToLogin = () => {
-  if (!userInfo.name) {
+  if (!isLoggedIn.value) {
     uni.navigateTo({
       url: '/pages/auth/login'
     })
@@ -168,17 +197,21 @@ const switchTab = () => {
 
 // 切换账号
 const switchAccount = () => {
+  if (!isLoggedIn.value) {
+    uni.navigateTo({
+      url: '/pages/auth/login'
+    })
+    return
+  }
+  
   uni.showModal({
     title: '切换账号',
-    content: '是否要切换到其他账号？',
+    content: '是否要退出当前账号并切换到其他账号？',
     showCancel: true,
-    confirmText: '切换',
+    confirmText: '退出登录',
     success: (res) => {
       if (res.confirm) {
-        uni.showToast({
-          title: '切换功能开发中',
-          icon: 'none'
-        })
+        userStore.logout()
       }
     }
   })
@@ -186,6 +219,13 @@ const switchAccount = () => {
 
 // 显示二维码
 const showQRCode = () => {
+  if (!isLoggedIn.value) {
+    uni.navigateTo({
+      url: '/pages/auth/login'
+    })
+    return
+  }
+  
   uni.showModal({
     title: '电子就诊卡',
     content: '显示电子就诊卡二维码功能开发中...',
@@ -195,10 +235,33 @@ const showQRCode = () => {
 }
 
 onMounted(() => {
-  // 获取用户信息
-  const savedUserInfo = uni.getStorageSync('userInfo')
-  if (savedUserInfo) {
-    Object.assign(userInfo, savedUserInfo)
+  console.log('📱 首页加载，用户信息:', {
+    name: userInfo.value?.name,
+    phonenumber: userInfo.value?.studentId,
+    avatar: userInfo.value?.avatar,
+    isLoggedIn: isLoggedIn.value
+  })
+})
+
+// 每次页面显示时刷新用户信息
+onShow(() => {
+  console.log('📱 首页显示，用户登录状态:', isLoggedIn.value)
+
+  // 尝试恢复本地登录态并在必要时刷新用户信息
+  try {
+    const restored = userStore.restoreAuth()
+    console.log('📱 restoreAuth ->', restored)
+
+    // 如果本地有 token 但 store 中没有完整用户信息，尝试校验并获取完整信息
+    if (restored && (!userStore.userInfo || !userStore.userInfo.realName)) {
+      userStore.checkAuth().then(res => {
+        console.log('📱 checkAuth 获取用户信息成功:', res)
+      }).catch(err => {
+        console.warn('⚠️ checkAuth 失败:', err)
+      })
+    }
+  } catch (err) {
+    console.warn('⚠️ 首页恢复登录态失败:', err)
   }
 })
 </script>

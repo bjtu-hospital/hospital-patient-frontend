@@ -4,8 +4,34 @@
  */
 import request from './request'
 
+// ==================== 短信验证码接口 ====================
+
+/**
+ * 发送短信验证码
+ * @param {String} phone - 手机号
+ * @returns {Promise<Object>} 返回 { detail: "验证码已发送" }
+ * 限流：60秒内只能发送一次，验证码有效期5分钟
+ */
+export const sendSmsCode = (phone) => {
+  return request.post('/auth/sms/send-code', { phone })
+}
+
+/**
+ * 校验短信验证码
+ * @param {String} phone - 手机号
+ * @param {String} code - 6位验证码
+ * @returns {Promise<Object>} 返回 { detail: "验证码验证通过" }
+ * 验证通过后15分钟内可完成注册
+ */
+export const verifySmsCode = (phone, code) => {
+  return request.post('/auth/sms/verify-code', { phone, code })
+}
+
+// ==================== 注册登录接口 ====================
+
 /**
  * 用户注册
+ * 前置要求：必须先完成短信验证码校验
  * @param {Object} data - 注册信息
  * @param {String} data.phonenumber - 手机号（必填）
  * @param {String} data.password - 密码（必填）
@@ -13,9 +39,9 @@ import request from './request'
  * @param {String} data.email - 邮箱（可选）
  * @param {String} data.gender - 性别（可选）'男'|'女'|'未知'
  * @param {String} data.birth_date - 出生日期（可选）YYYY-MM-DD
- * @param {String} data.student_id - 学号（可选）
- * @param {String} data.patient_type - 患者类型（可选）'学生'|'教师'|'职工'
- * @returns {Promise<String>} 返回 token
+ * @param {String} data.identifier - 学号/工号（可选）
+ * @param {String} data.patient_type - 患者类型（可选）'student'|'teacher'|'staff'
+ * @returns {Promise<String>} 返回 token（注册成功自动登录）
  */
 export const register = (data) => {
   return request.post('/auth/register', data)
