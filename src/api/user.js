@@ -23,6 +23,7 @@ const USE_MOCK = false  // ← 暂时使用 Mock 数据，等待后端接口实�
  * - phone: 手机号（已脱敏：前3位+4个星号+后4位）
  */
 export const getUserInfo = () => {
+  console.log('📱 getUserInfo called, USE_MOCK =', USE_MOCK)
   if (USE_MOCK) {
     return Promise.resolve(mockUserInfo)
   }

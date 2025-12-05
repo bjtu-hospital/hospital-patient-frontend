@@ -5,6 +5,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as authApi from '@/api/auth'
 import { setToken, removeToken, setUserInfo, removeUserInfo, checkAuth as checkAuthUtil } from '@/utils/auth'
+import { getUserInfo as getUserInfoApi } from '@/api/user'
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -46,8 +47,7 @@ export const useUserStore = defineStore('user', () => {
       
       // 🆕 尝试获取完整用户信息（不阻断登录流程）
       try {
-        const { getUserInfo } = await import('@/api/user')
-        const fullUserInfo = await getUserInfo()
+        const fullUserInfo = await getUserInfoApi()
         console.log('📋 获取完整用户信息成功:', fullUserInfo)
         
         // 合并完整信息
@@ -128,8 +128,7 @@ export const useUserStore = defineStore('user', () => {
       
       // 🆕 尝试获取完整用户信息（不阻断验证流程）
       try {
-        const { getUserInfo } = await import('@/api/user')
-        const fullUserInfo = await getUserInfo()
+        const fullUserInfo = await getUserInfoApi()
         console.log('📋 验证登录态时获取完整用户信息成功:', fullUserInfo)
         
         // 合并完整信息

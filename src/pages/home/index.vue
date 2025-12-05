@@ -246,6 +246,23 @@ onMounted(() => {
 // 每次页面显示时刷新用户信息
 onShow(() => {
   console.log('📱 首页显示，用户登录状态:', isLoggedIn.value)
+
+  // 尝试恢复本地登录态并在必要时刷新用户信息
+  try {
+    const restored = userStore.restoreAuth()
+    console.log('📱 restoreAuth ->', restored)
+
+    // 如果本地有 token 但 store 中没有完整用户信息，尝试校验并获取完整信息
+    if (restored && (!userStore.userInfo || !userStore.userInfo.realName)) {
+      userStore.checkAuth().then(res => {
+        console.log('📱 checkAuth 获取用户信息成功:', res)
+      }).catch(err => {
+        console.warn('⚠️ checkAuth 失败:', err)
+      })
+    }
+  } catch (err) {
+    console.warn('⚠️ 首页恢复登录态失败:', err)
+  }
 })
 </script>
 

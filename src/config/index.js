@@ -5,7 +5,7 @@
 // API 基础地址
 export const API_BASE_URL = process.env.NODE_ENV === 'development' 
   ? 'http://localhost:8000'  // 开发环境
-  : 'https://api.bjtu-hospital.com'  // 生产环境
+  : 'http://localhost:8000'  // 生产环境
 
 // 请求超时时间
 export const REQUEST_TIMEOUT = 10000

@@ -171,9 +171,13 @@ const request = (options) => {
   })
   
   return new Promise((resolve, reject) => {
+    // 打印请求信息，便于在小程序调试器中查看是否发起请求及目标 URL
+    console.log('[HTTP] Request ->', config.method, config.url)
+
     uni.request({
       ...config,
       success: (response) => {
+        console.log('[HTTP] Response status:', response.statusCode, 'url:', config.url)
         try {
           const result = responseInterceptor(response)
           resolve(result)
@@ -182,6 +186,9 @@ const request = (options) => {
         }
       },
       fail: (error) => {
+        // 在控制台打印原始 errMsg，帮助定位微信开发者工具被阻止或域名问题
+        console.error('[HTTP] Request failed ->', config.method, config.url, error && error.errMsg)
+
         let errorMsg = '网络请求失败'
         
         if (error.errMsg) {
@@ -194,7 +201,7 @@ const request = (options) => {
           }
         }
         
-        // 统一Toast提示网络错误
+        // 统一Toast提示网络错误（业务层仍可捕获 Error）
         uni.showToast({
           title: errorMsg,
           icon: 'none',
