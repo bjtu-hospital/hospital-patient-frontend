@@ -136,6 +136,12 @@
 		}
 	},
 	{
+		"path": "pages/profile/settings",
+		"style": {
+			"navigationBarTitleText": "账号设置"
+		}
+	},
+	{
 		"path": "pages/message/index",
 		"style": {
 			"navigationBarTitleText": "消息中心"

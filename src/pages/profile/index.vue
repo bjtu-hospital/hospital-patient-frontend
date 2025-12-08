@@ -221,9 +221,8 @@ const goToAI = () => {
 }
 
 const goToSettings = () => {
-  uni.showToast({
-    title: '设置功能开发中',
-    icon: 'none'
+  uni.navigateTo({
+    url: '/pages/profile/settings'
   })
 }
 
