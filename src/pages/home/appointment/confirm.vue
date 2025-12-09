@@ -82,8 +82,8 @@
 
     <!-- 底部提交按钮 -->
     <view class="bottom-actions">
-      <button class="submit-btn" :disabled="!selectedPatient" @tap="submitAppointment">
-        提交
+      <button class="submit-btn" :disabled="!selectedPatient || submitting" @tap="submitAppointment">
+        {{ submitting ? '提交中...' : '提交' }}
       </button>
     </view>
   </view>
@@ -95,12 +95,12 @@ import { useAppointmentStore } from '@/stores/appointment'
 import { usePaymentStore } from '@/stores/payment'  // ✅ 导入支付Store
 import { getPatients } from '@/api/user'  // ✨ 导入 API
 import { createAppointment } from '@/api/appointment'  // ✨ 导入预约API
-import { createPaymentOrder } from '@/api/payment'  // ✅ 导入支付API
 
 const appointmentStore = useAppointmentStore()
 const paymentStore = usePaymentStore()  // ✅ 使用支付Store
 const selectedPatient = ref(null)
 const loading = ref(false)
+const submitting = ref(false)
 
 // 预约信息汇总
 const appointmentInfo = reactive({
@@ -196,6 +196,11 @@ const submitAppointment = async () => {
     return
   }
 
+  if (submitting.value) {
+    return  // 防止重复提交
+  }
+  submitting.value = true
+
   uni.showLoading({
     title: '预约中...',
     mask: true
@@ -206,16 +211,18 @@ const submitAppointment = async () => {
     const schedule = appointmentStore.selectedSchedule
     
     const appointmentData = {
-      scheduleId: schedule?.id,
-      hospitalId: appointmentStore.selectedHospital?.id,
-      departmentId: appointmentStore.selectedDepartment?.id,
-      patientId: selectedPatient.value.patientId,  // 🔧 使用 patientId 而不是 id
+      scheduleId: Number(schedule?.id),
+      hospitalId: Number(appointmentStore.selectedHospital?.id),
+      departmentId: Number(appointmentStore.selectedDepartment?.id),
+      patientId: Number(selectedPatient.value.patientId),
       symptoms: ''  // 可选的症状描述
     }
     
     console.log('📤 提交预约数据:', appointmentData)
     
     const result = await createAppointment(appointmentData)
+    
+    console.log('✅ 预约成功，后端返回:', result)
     
     // 保存预约记录到本地(用于"我的预约"页面显示)
     const appointmentRecord = {
@@ -231,11 +238,12 @@ const submitAppointment = async () => {
       appointmentDate: result.appointmentDate || schedule?.date,
       appointmentTime: result.appointmentTime || `${schedule?.period} ${schedule?.startTime}-${schedule?.endTime}`,
       patientName: selectedPatient.value.name,
-      patientId: selectedPatient.value.patientId,  // 🔧 使用 patientId
+      patientId: selectedPatient.value.patientId,
       queueNumber: result.queueNumber,
-      price: result.payAmount || appointmentInfo.price,
+      price: result.payAmount || appointmentInfo.price,  // 🔧 使用后端返回的 payAmount
       status: result.status || 'pending',
-      paymentStatus: result.paymentStatus || 'pending',
+      paymentStatus: result.paymentStatus || 'pending',  // 🔧 保存支付状态
+      needPay: result.needPay !== false,  // 🔧 保存是否需要支付
       canCancel: true,
       canReschedule: true,
       createdAt: new Date().toISOString()
@@ -246,37 +254,70 @@ const submitAppointment = async () => {
     existingAppointments.unshift(appointmentRecord)
     uni.setStorageSync('myAppointments', existingAppointments)
     
-    // 保存为最后一个预约(用于 success 页面显示)
+    // 保存为最后一个预约(用于 success/payment 页面显示)
     uni.setStorageSync('lastAppointment', appointmentRecord)
     
-    // ✅ 创建支付订单并保存到 Store(但不立即跳转支付页面)
-    const paymentOrder = await createPaymentOrder({
-      appointmentId: result.id,
-      orderNo: result.orderNo,
-      amount: appointmentInfo.price,
-      description: `${appointmentInfo.hospital}-${appointmentInfo.department}`,
-      patientName: selectedPatient.value.name
-    })
-    
-    // ✅ 保存支付订单到 Store
-    paymentStore.createOrder(paymentOrder)
-    
     uni.hideLoading()
+    submitting.value = false
     
     // 清空预约流程数据
     appointmentStore.clearAppointmentData()
     
-    // ✅ 先跳转到预约成功页面,在那里用户可以选择立即支付
-    uni.navigateTo({
-      url: '/pages/home/appointment/success'
-    })
+    // ✅ 根据 needPay 判断跳转目标页面
+    if (result.needPay) {
+      // 需要支付，跳转到支付页面
+      console.log('💳 需要支付，跳转到支付页面')
+      uni.navigateTo({
+        url: '/pages/home/appointment/payment'
+      })
+    } else {
+      // 不需要支付，直接跳转到成功页面
+      console.log('✅ 无需支付，跳转到成功页面')
+      uni.navigateTo({
+        url: '/pages/home/appointment/success'
+      })
+    }
     
   } catch (error) {
     uni.hideLoading()
-    uni.showToast({
-      title: error.message || '预约失败,请重试',
-      icon: 'none'
-    })
+    submitting.value = false
+    
+    console.error('❌ 预约失败:', error)
+    
+    // 检查是否是号源不足错误
+    const errorMsg = error.message || ''
+    const isNoSlots = errorMsg.includes('号源不足') || 
+                     errorMsg.includes('已满') || 
+                     errorMsg.includes('remaining_slots') ||
+                     errorMsg.includes('no slots')
+    
+    if (isNoSlots) {
+      // 提示用户加入候补
+      uni.showModal({
+        title: '号源已满',
+        content: '该时段号源已满，是否加入候补队列？有号源时系统将自动为您转为预约。',
+        confirmText: '加入候补',
+        cancelText: '返回',
+        success: (res) => {
+          if (res.confirm) {
+            // 保存选中的就诊人到 Store
+            appointmentStore.setSelectedPatient(selectedPatient.value)
+            
+            // 跳转到候补确认页面
+            uni.navigateTo({
+              url: '/pages/home/waitlist/confirm-waitlist'
+            })
+          }
+        }
+      })
+    } else {
+      // 其他错误，直接提示
+      uni.showToast({
+        title: errorMsg || '预约失败,请重试',
+        icon: 'none',
+        duration: 2500
+      })
+    }
   }
 }
 

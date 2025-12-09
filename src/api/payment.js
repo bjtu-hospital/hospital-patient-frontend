@@ -4,7 +4,7 @@
 import request from './request'
 
 // 是否使用 Mock 数据
-const USE_MOCK = true
+const USE_MOCK = false
 
 // ==================== 支付相关 ====================
 
@@ -174,4 +174,63 @@ export const verifyPayment = (data) => {
     })
   }
   return request.post('/patient/payments/verify', data)
+}
+
+// ==================== 预约订单支付相关 ====================
+
+/**
+ * 支付预约订单
+ * @param {Number} appointmentId - 预约订单ID
+ * @param {Object} data - 支付信息 { method: 'alipay'|'wechat'|'bank', remark?: string }
+ * @returns {Promise} 返回支付结果
+ * Response: {
+ *   success: true,
+ *   orderId: 订单ID,
+ *   orderNo: 订单号,
+ *   amount: 支付金额,
+ *   method: 支付方式,
+ *   paymentStatus: 'paid',
+ *   paymentTime: 支付时间
+ * }
+ */
+export const payAppointment = (appointmentId, data) => {
+  if (USE_MOCK) {
+    // 模拟支付成功
+    return Promise.resolve({
+      success: true,
+      orderId: appointmentId,
+      orderNo: '20251208' + String(appointmentId).padStart(6, '0'),
+      amount: 80,
+      method: data.method || 'alipay',
+      paymentStatus: 'paid',
+      paymentTime: new Date().toISOString().replace('T', ' ').slice(0, 19)
+    })
+  }
+  return request.post(`/patient/appointments/${appointmentId}/pay`, data)
+}
+
+/**
+ * 取消预约订单支付（申请退款）
+ * @param {Number} appointmentId - 预约订单ID
+ * @param {String} reason - 取消原因
+ * @returns {Promise} 返回取消结果
+ * Response: {
+ *   success: true,
+ *   orderId: 订单ID,
+ *   status: 'cancelled',
+ *   cancelTime: 取消时间
+ * }
+ */
+export const cancelAppointmentPayment = (appointmentId, reason = '') => {
+  if (USE_MOCK) {
+    return Promise.resolve({
+      success: true,
+      orderId: appointmentId,
+      status: 'cancelled',
+      cancelTime: new Date().toISOString().replace('T', ' ').slice(0, 19)
+    })
+  }
+  return request.post(`/patient/appointments/${appointmentId}/cancel-payment`, {
+    reason: reason
+  })
 }

@@ -31,26 +31,59 @@
           </view>
           <view class="info-item">
             <text class="info-label">候补日期</text>
-            <text class="info-value">{{ item.appointmentDate }} {{ item.period }}</text>
+            <text class="info-value">{{ item.appointmentDate }} {{ item.appointmentTime }}</text>
           </view>
           <view class="info-item">
-            <text class="info-label">门诊类型</text>
-            <text class="info-value">{{ item.appointmentType }} <text class="price">¥{{ item.price }}</text></text>
+            <text class="info-label">挂号费用</text>
+            <text class="info-value price">¥{{ item.price }}</text>
+          </view>
+          <view class="info-item" v-if="item.status === 'waitlist'">
+            <text class="info-label">候补排位</text>
+            <text class="info-value queue-number">第{{ item.queueNumber }}位</text>
           </view>
           <view class="info-item">
-            <text class="info-label">提交时间</text>
+            <text class="info-label">创建时间</text>
             <text class="info-value">{{ item.createdAt }}</text>
           </view>
         </view>
         
+        <!-- 可转预约提示 -->
+        <view class="convert-tip" v-if="item.status === 'waitlist' && item.canConvert">
+          <view class="tip-icon">
+            <uni-icons type="checkmarkempty" size="18" color="#10b981"></uni-icons>
+          </view>
+          <text class="tip-text">有号源啦！可以转为预约</text>
+        </view>
+        
         <!-- 操作按钮 -->
         <view class="card-actions">
-          <button class="detail-btn" @tap="viewDetail(item)">
-            查看详情
-          </button>
-          <button class="cancel-btn" @tap="handleCancel(item.id)" v-if="item.status === 'waiting'">
-            取消候补
-          </button>
+          <!-- 候补中：可转预约 + 取消候补 -->
+          <template v-if="item.status === 'waitlist'">
+            <button class="detail-btn" @tap="viewDetail(item)">
+              查看详情
+            </button>
+            <button 
+              class="convert-btn" 
+              v-if="item.canConvert"
+              @tap="handleConvert(item)"
+            >
+              转为预约
+            </button>
+            <button 
+              class="cancel-btn" 
+              v-else
+              @tap="handleCancel(item.id)"
+            >
+              取消候补
+            </button>
+          </template>
+          
+          <!-- 其他状态：只显示查看详情 -->
+          <template v-else>
+            <button class="detail-btn full-width" @tap="viewDetail(item)">
+              查看详情
+            </button>
+          </template>
         </view>
       </view>
     </view>
@@ -60,7 +93,7 @@
       <view class="tip-icon">
         <uni-icons type="info-filled" size="18" color="#ef4444"></uni-icons>
       </view>
-      <text class="tip-text">温馨提示：候补成功的订单，请前往"我的预约"中查看或取消</text>
+      <text class="tip-text">温馨提示：候补成功转为预约后，请在30分钟内完成支付</text>
     </view>
     
     <!-- 空状态 -->
@@ -80,7 +113,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getMyWaitlist, cancelWaitlist } from '@/api/appointment'
+import { onShow } from '@dcloudio/uni-app'
+import { getMyWaitlist, cancelWaitlist, convertWaitlistToAppointment } from '@/api/appointment'
 
 const waitlist = ref([])
 const loading = ref(false)
@@ -89,12 +123,23 @@ const loading = ref(false)
 const loadWaitlist = async () => {
   try {
     loading.value = true
-    const data = await getMyWaitlist()
-    waitlist.value = data || []
+    const result = await getMyWaitlist()
+    // 后端返回 { list: [...] }
+    let list = result.list || result || []
+    
+    // ✅ 修复：按创建时间降序排序（最新的在最上面）
+    list.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0)
+      const dateB = new Date(b.createdAt || 0)
+      return dateB - dateA  // 降序：新的在前
+    })
+    
+    waitlist.value = list
+    console.log('候补列表（已排序）:', waitlist.value)
   } catch (error) {
     console.error('获取候补列表失败:', error)
     uni.showToast({
-      title: '加载失败',
+      title: error.message || '加载失败',
       icon: 'none'
     })
   } finally {
@@ -138,11 +183,47 @@ const handleCancel = (waitlistId) => {
   })
 }
 
+// 候补转预约
+const handleConvert = (item) => {
+  console.log('点击转为预约，候补信息:', item)
+  
+  uni.showModal({
+    title: '转为预约',
+    content: `确定将候补转为预约吗？\n医生：${item.doctorName}\n日期：${item.appointmentDate}\n费用：¥${item.price}`,
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          uni.showLoading({ title: '转换中...' })
+          
+          // 调用转预约接口
+          const appointment = await convertWaitlistToAppointment(item.id, 'online')
+          
+          uni.hideLoading()
+          console.log('转预约成功:', appointment)
+          
+          // 跳转到支付页面
+          uni.navigateTo({
+            url: `/pages/home/appointment/payment?appointmentId=${appointment.id}&price=${appointment.price}`
+          })
+          
+        } catch (error) {
+          uni.hideLoading()
+          console.error('转预约失败:', error)
+          uni.showToast({
+            title: error.message || '转预约失败',
+            icon: 'none'
+          })
+        }
+      }
+    }
+  })
+}
+
 // 查看详情
 const viewDetail = (item) => {
   // 跳转到候补详情页面（候补成功页面）
   uni.navigateTo({
-    url: `/pages/home/waitlist/waitlist-success?waitlistId=${item.id}&position=${item.position || 0}&status=${item.status}`
+    url: `/pages/home/waitlist/waitlist-success?waitlistId=${item.id}&position=${item.queueNumber || 0}&status=${item.status}`
   })
 }
 
@@ -156,8 +237,8 @@ const goToAppointment = () => {
 // 获取状态样式类
 const getStatusClass = (status) => {
   return {
-    'status-waiting': status === 'waiting',
-    'status-success': status === 'success',
+    'status-waiting': status === 'waitlist',
+    'status-success': status === 'converted',
     'status-expired': status === 'expired',
     'status-cancelled': status === 'cancelled'
   }
@@ -166,8 +247,8 @@ const getStatusClass = (status) => {
 // 获取状态文本
 const getStatusText = (status) => {
   const statusMap = {
-    waiting: '候补中',
-    success: '候补成功',
+    waitlist: '候补中',
+    converted: '已转预约',
     expired: '已过期',
     cancelled: '已取消'
   }
@@ -175,6 +256,11 @@ const getStatusText = (status) => {
 }
 
 onMounted(() => {
+  loadWaitlist()
+})
+
+// 每次页面显示时刷新列表
+onShow(() => {
   loadWaitlist()
 })
 </script>
@@ -247,6 +333,29 @@ onMounted(() => {
   background: #ecfdf5;
   color: #10b981;
   border: 1rpx solid #10b981;
+}
+
+/* 可转预约提示 */
+.convert-tip {
+  background: #ecfdf5;
+  padding: 16rpx 20rpx;
+  border-radius: $border-radius-base;
+  margin-bottom: 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  border: 1rpx solid #86efac;
+}
+
+.convert-tip .tip-text {
+  font-size: 24rpx;
+  color: #10b981;
+  font-weight: $font-medium;
+}
+
+.queue-number {
+  color: $hospital-primary !important;
+  font-weight: $font-bold !important;
 }
 
 .status-badge.status-expired {
@@ -323,6 +432,31 @@ onMounted(() => {
   
   &:active {
     background: #f0fdff;
+  }
+}
+
+.detail-btn.full-width {
+  flex: none;
+  width: 100%;
+}
+
+.convert-btn {
+  flex: 1;
+  padding: 20rpx;
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  border: none;
+  border-radius: $border-radius-base;
+  color: white;
+  font-size: 26rpx;
+  font-weight: $font-medium;
+  transition: all 0.2s ease;
+  
+  &::after {
+    border: none;
+  }
+  
+  &:active {
+    opacity: 0.9;
   }
 }
 

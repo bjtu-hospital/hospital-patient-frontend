@@ -106,10 +106,12 @@
     <!-- 底部导航 -->
     <view class="bottom-nav">
       <view class="nav-item" @tap="goBack">
-        <uni-icons type="back" size="24" color="#666"></uni-icons>
+        <uni-icons type="home-filled" size="24" color="#00BFCC"></uni-icons>
+        <text class="nav-text">首页</text>
       </view>
       <view class="nav-item" @tap="goNext">
-        <uni-icons type="forward" size="24" color="#666"></uni-icons>
+        <uni-icons type="forward" size="24" color="#cbd5e1"></uni-icons>
+        <text class="nav-text">下一页</text>
       </view>
     </view>
   </view>
@@ -205,31 +207,22 @@ const handlePay = async () => {
     return
   }
 
-  // ✅ 直接跳转到支付页面，不需要重复创建支付订单
-  // 因为在confirm.vue中已经创建过支付订单并保存到Store了
-  
-  // 检查Store中是否已有支付订单
-  if (!paymentStore.currentOrder) {
-    uni.showToast({
-      title: '支付订单异常，请重新预约',
-      icon: 'none'
-    })
-    return
-  }
-
   // 暂停倒计时（跳转到支付页面后，支付页面有自己的倒计时）
   clearInterval(timer)
   
-  // 直接跳转到支付页面
+  // 直接跳转到支付页面（支付页面会从 lastAppointment 读取预约信息）
   uni.navigateTo({
     url: '/pages/home/appointment/payment'
   })
 }
 
-// 返回
+// 返回首页
 const goBack = () => {
   clearInterval(timer)
-  uni.navigateBack()
+  // 直接返回到首页，而不是逐级返回
+  uni.reLaunch({
+    url: '/pages/home/index'
+  })
 }
 
 // 下一页（如果有多个预约）
@@ -576,8 +569,15 @@ onUnmounted(() => {
   width: 80rpx;
   height: 80rpx;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8rpx;
+}
+
+.nav-text {
+  font-size: 20rpx;
+  color: #64748b;
 }
 
 .nav-item:active {
