@@ -6,8 +6,8 @@
         <text class="hospital-name">{{ appointment.hospitalName }}</text>
         <text class="department-name">{{ appointment.departmentName }}</text>
       </view>
-      <!-- 候补成功标签：优先显示 -->
-      <view v-if="isFromWaitlist" class="status-badge status-waitlist-success">
+      <!-- 候补成功标签：只在待就诊状态且来自候补时显示 -->
+      <view v-if="isFromWaitlist && appointment.status === 'pending'" class="status-badge status-waitlist-success">
         <text class="status-text">✅ 候补成功</text>
       </view>
       <!-- 普通状态标签 -->
