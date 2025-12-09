@@ -25,7 +25,7 @@
 
     <view class="tips-box">
       <uni-icons type="info" size="20" color="#2563eb"></uni-icons>
-      <text class="tips-text">请选择同科室新时间段，原预约会在改约成功后自动取消。</text>
+      <text class="tips-text">请选择同医生、同诊室的新时间段，原预约会在改约成功后自动取消。</text>
     </view>
 
     <scroll-view class="date-tabs" scroll-x show-scrollbar="false" v-if="dateTabs.length > 1">
@@ -89,13 +89,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
-import { getDoctorSchedules } from '@/api/appointment'
+import { getRescheduleOptions } from '@/api/appointment'
 
 const appointmentStore = useAppointmentStore()
 const context = ref(null)
 const loading = ref(false)
 const schedules = ref([])
 const selectedDate = ref('all')
+const currentScheduleId = ref(null)
 
 const dateTabs = computed(() => {
   const dates = new Map()
@@ -148,18 +149,20 @@ const selectDate = (value) => {
 
 const isCurrentSchedule = (schedule) => {
   if (!context.value) return false
-  if (context.value.scheduleId && schedule.id === context.value.scheduleId) {
+  // 🔧 优先通过 scheduleId 判断
+  if (currentScheduleId.value && schedule.scheduleId === currentScheduleId.value) {
     return true
   }
-  return (
-    schedule.date === context.value.appointmentDate &&
-    `${schedule.period} ${schedule.startTime}-${schedule.endTime}` === context.value.appointmentTime
-  )
+  // 兼容旧数据：通过日期和时间判断
+  if (context.value.scheduleId && schedule.scheduleId === context.value.scheduleId) {
+    return true
+  }
+  return false
 }
 
 const handleSelect = (schedule) => {
   if (!context.value) return
-  if (schedule.availableSlots === 0) {
+  if (schedule.remainingSlots === 0 || schedule.availableSlots === 0) {
     uni.showToast({
       title: '该时间段已约满',
       icon: 'none'
@@ -182,23 +185,53 @@ const handleSelect = (schedule) => {
 }
 
 const loadSchedules = async () => {
-  if (!context.value?.hospitalId || !context.value?.departmentId) {
+  if (!context.value?.appointmentId) {
+    uni.showToast({
+      title: '缺少预约ID',
+      icon: 'none'
+    })
     return
   }
+  
   try {
     loading.value = true
     uni.showLoading({
       title: '加载号源...'
     })
-    const result = await getDoctorSchedules({
-      hospitalId: context.value.hospitalId,
-      departmentId: context.value.departmentId
-    })
-    schedules.value = result || []
+    
+    // 🔧 使用新接口：获取可改约的排班列表（同医生、同诊室）
+    const result = await getRescheduleOptions(context.value.appointmentId)
+    
+    console.log('📥 可改约排班列表:', result)
+    
+    // 保存当前排班ID
+    currentScheduleId.value = result.currentScheduleId
+    
+    // 🔧 映射后端返回的数据格式到前端需要的格式
+    schedules.value = (result.options || []).map(option => ({
+      scheduleId: option.scheduleId,
+      id: option.scheduleId, // 兼容旧代码
+      date: option.date,
+      period: option.timeSection, // timeSection -> period
+      startTime: option.startTime || '08:00',
+      endTime: option.endTime || '12:00',
+      doctorName: option.doctorName || context.value.doctorName,
+      doctorTitle: option.doctorTitle || context.value.doctorTitle,
+      appointmentType: option.slotType || '普通',
+      price: option.price,
+      availableSlots: option.remainingSlots, // remainingSlots -> availableSlots
+      remainingSlots: option.remainingSlots,
+      hospitalName: option.hospitalName,
+      departmentName: option.departmentName,
+      clinicName: option.clinicName
+    }))
+    
+    console.log('✅ 映射后的排班列表:', schedules.value)
+    
   } catch (error) {
     console.error('加载改约号源失败', error)
     uni.showToast({
-      title: '加载失败，请稍后再试',
+      title: error.message || '加载失败，请稍后再试',
       icon: 'none'
     })
   } finally {

@@ -40,6 +40,7 @@
         :key="appointment.id"
         :appointment="appointment"
         @click="viewDetails"
+        @pay="goToPayment"
         @cancel="cancelAppointment"
         @reschedule="rescheduleAppointment"
         @evaluate="evaluateAppointment"
@@ -237,6 +238,29 @@ const evaluateAppointment = async (appointment) => {
 const goToAppointment = () => {
   uni.navigateTo({
     url: '/pages/home/appointment/select-hospital'
+  })
+}
+
+// 去支付（候补转预约成功后）
+const goToPayment = (appointment) => {
+  // 保存预约信息到 storage，供支付页面使用
+  uni.setStorageSync('lastAppointment', {
+    id: appointment.id,
+    orderNo: appointment.orderNo,
+    hospitalName: appointment.hospitalName,
+    departmentName: appointment.departmentName,
+    doctorName: appointment.doctorName,
+    appointmentDate: appointment.appointmentDate,
+    appointmentTime: appointment.appointmentTime,
+    patientName: appointment.patientName,
+    price: appointment.price,
+    needPay: true,
+    paymentStatus: appointment.paymentStatus || 'pending'
+  })
+  
+  // 跳转到支付页面
+  uni.navigateTo({
+    url: '/pages/home/appointment/payment'
   })
 }
 

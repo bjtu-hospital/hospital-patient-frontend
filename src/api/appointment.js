@@ -419,6 +419,11 @@ export const getMyAppointments = (params = {}) => {
           return appointment.status !== 'waitlist' && !appointment.isWaitlist
         })
         .map(appointment => {
+          // 🔍 调试：打印原始数据，检查后端是否返回 sourceType 字段
+          if (appointment.paymentStatus === 'pending') {
+            console.log('🔍 待支付订单原始数据:', JSON.stringify(appointment, null, 2))
+          }
+          
           const mappedStatus = statusMap[appointment.status] || appointment.status
           
           // 判断预约日期是否在未来
@@ -444,7 +449,12 @@ export const getMyAppointments = (params = {}) => {
             ...appointment,
             status: finalStatus,
             canCancel,
-            canReschedule
+            canReschedule,
+            // 🔧 保留候补来源标识和支付状态
+            sourceType: appointment.sourceType,
+            sourceWaitlistId: appointment.sourceWaitlistId,
+            paymentStatus: appointment.paymentStatus,
+            fromWaitlist: appointment.sourceType === 'waitlist'
           }
         })
     }
@@ -516,7 +526,12 @@ export const getMyInitiatedAppointments = (params = {}) => {
           ...appointment,
           status: finalStatus,
           canCancel,
-          canReschedule
+          canReschedule,
+          // 🔧 保留候补来源标识和支付状态
+          sourceType: appointment.sourceType,
+          sourceWaitlistId: appointment.sourceWaitlistId,
+          paymentStatus: appointment.paymentStatus,
+          fromWaitlist: appointment.sourceType === 'waitlist'
         }
       })
     }
@@ -569,10 +584,71 @@ export const cancelAppointment = (appointmentId) => {
 }
 
 /**
- * 改约
+ * 获取可改约的排班列表（同医生、同诊室、同号源）
  * @param {String} appointmentId - 预约ID
- * @param {Object} data - 新的预约信息
- * @returns {Promise} 是否成功
+ * @returns {Promise} 返回可改约的排班列表
+ * Response: {
+ *   appointmentId, currentScheduleId, currentDate, currentTimeSection,
+ *   options: [{ scheduleId, date, timeSection, remainingSlots, price, ... }]
+ * }
+ */
+export const getRescheduleOptions = (appointmentId) => {
+  if (USE_MOCK) {
+    // Mock 模式：返回当前预约同科室的其他排班
+    const storedAppointments = uni.getStorageSync('myAppointments') || []
+    const appointment = storedAppointments.find(a => a.id === appointmentId) || 
+                       mockAppointments.find(a => a.id === appointmentId)
+    
+    if (!appointment) {
+      return Promise.reject(new Error('预约不存在'))
+    }
+    
+    // 查找同科室的其他排班
+    const options = mockSchedules
+      .filter(s => 
+        s.departmentId === appointment.departmentId &&
+        s.date !== appointment.appointmentDate
+      )
+      .map(s => ({
+        scheduleId: s.id,
+        date: s.date,
+        timeSection: s.period,
+        remainingSlots: s.remainingSlots || s.availableSlots || 0,
+        price: s.price,
+        hospitalId: s.hospitalId,
+        hospitalName: s.hospitalName || appointment.hospitalName,
+        departmentId: s.departmentId,
+        departmentName: s.departmentName || appointment.departmentName,
+        clinicId: s.clinicId,
+        clinicName: s.clinicName,
+        slotType: s.slotType,
+        doctorName: s.doctorName,
+        doctorTitle: s.doctorTitle,
+        startTime: s.startTime,
+        endTime: s.endTime
+      }))
+    
+    return Promise.resolve({
+      appointmentId: appointment.id,
+      currentScheduleId: appointment.scheduleId,
+      currentDate: appointment.appointmentDate,
+      currentTimeSection: appointment.appointmentTime,
+      options: options
+    })
+  }
+  
+  return request.get(`/patient/appointments/${appointmentId}/reschedule-options`)
+}
+
+/**
+ * 改约到同医生同诊室的其他排班
+ * @param {String} appointmentId - 预约ID
+ * @param {Object} data - 新排班信息 { scheduleId }
+ * @returns {Promise} 返回改约结果
+ * Response: {
+ *   id, appointmentDate, appointmentTime, price, priceDiff,
+ *   status, paymentStatus
+ * }
  */
 export const rescheduleAppointment = (appointmentId, data) => {
   if (USE_MOCK) {
@@ -650,7 +726,13 @@ export const rescheduleAppointment = (appointmentId, data) => {
 
     return Promise.resolve(updatedAppointment)
   }
-  return request.put(`/patient/appointments/${appointmentId}/reschedule`, data)
+  
+  // 🔧 后端接口只需要 scheduleId
+  const apiData = {
+    scheduleId: data.scheduleId
+  }
+  
+  return request.put(`/patient/appointments/${appointmentId}/reschedule`, apiData)
 }
 
 // ==================== 候补相关 ====================

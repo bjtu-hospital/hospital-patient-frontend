@@ -6,7 +6,12 @@
         <text class="hospital-name">{{ appointment.hospitalName }}</text>
         <text class="department-name">{{ appointment.departmentName }}</text>
       </view>
-      <view class="status-badge" :class="`status-${appointment.status}`">
+      <!-- 候补成功标签：优先显示 -->
+      <view v-if="isFromWaitlist" class="status-badge status-waitlist-success">
+        <text class="status-text">✅ 候补成功</text>
+      </view>
+      <!-- 普通状态标签 -->
+      <view v-else class="status-badge" :class="`status-${appointment.status}`">
         <text class="status-text">{{ statusText }}</text>
       </view>
     </view>
@@ -33,6 +38,14 @@
     <view class="card-footer">
       <text class="price">¥{{ formatPrice(appointment.price) }}</text>
       <view class="actions">
+        <!-- 候补成功后的支付按钮：优先级最高 -->
+        <button 
+          class="action-btn pay" 
+          v-if="showPay"
+          @tap.stop="handlePay"
+        >
+          去支付
+        </button>
         <button 
           class="action-btn cancel" 
           v-if="showCancel"
@@ -78,7 +91,20 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['click', 'cancel', 'reschedule', 'evaluate'])
+const emit = defineEmits(['click', 'cancel', 'reschedule', 'evaluate', 'pay'])
+
+// 判断是否来自候补转预约
+const isFromWaitlist = computed(() => {
+  return props.appointment.sourceType === 'waitlist' || props.appointment.fromWaitlist === true
+})
+
+// 判断是否需要支付（候补成功但未支付）
+const needPay = computed(() => {
+  // 候补转预约后，paymentStatus 为 'pending' 表示待支付
+  return isFromWaitlist.value && 
+         props.appointment.status === 'pending' && 
+         (props.appointment.paymentStatus === 'pending' || props.appointment.paymentStatus === 'unpaid')
+})
 
 // 状态文本映射
 const statusMap = {
@@ -90,13 +116,18 @@ const statusMap = {
 const statusText = computed(() => statusMap[props.appointment.status] || props.appointment.status)
 
 // 显示操作按钮
-const showCancel = computed(() => props.appointment.status === 'pending' && props.appointment.canCancel !== false)
-const showReschedule = computed(() => props.appointment.status === 'pending' && props.appointment.canReschedule !== false)
+const showPay = computed(() => needPay.value) // 候补成功且未支付时显示
+const showCancel = computed(() => props.appointment.status === 'pending' && props.appointment.canCancel !== false && !needPay.value)
+const showReschedule = computed(() => props.appointment.status === 'pending' && props.appointment.canReschedule !== false && !needPay.value)
 const showEvaluate = computed(() => props.appointment.status === 'completed')
 
 // 事件处理
 const handleClick = () => {
   emit('click', props.appointment)
+}
+
+const handlePay = () => {
+  emit('pay', props.appointment)
 }
 
 const handleCancel = () => {
@@ -171,6 +202,14 @@ const handleEvaluate = () => {
 .status-cancelled {
   background: #FEE2E2;
   color: #dc2626;
+}
+
+.status-waitlist-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-weight: 600;
+  padding: 8rpx 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(16, 185, 129, 0.3);
 }
 
 /* 卡片内容 */
@@ -257,6 +296,17 @@ const handleEvaluate = () => {
 .action-btn.evaluate {
   background: #FEF3C7;
   color: #f59e0b;
+}
+
+.action-btn.pay {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(16, 185, 129, 0.3);
+}
+
+.action-btn.pay:active {
+  opacity: 0.9;
 }
 
 .action-btn:active {
