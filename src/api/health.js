@@ -87,9 +87,9 @@ export const getMedicalRecordDetail = (recordId) => {
     return Promise.resolve(record)
   }
   
-  // 真实接口：GET /patient/visit-record/{visitId}
+  // 真实接口：GET /common/visit-record/{visit_id}
   // 后端返回格式：{ basicInfo: {...}, recordData: {...} }
-  return request.get(`/patient/visit-record/${recordId}`)
+  return request.get(`/common/visit-record/${recordId}`)
 }
 
 /**
