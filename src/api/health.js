@@ -5,8 +5,22 @@ import request from './request'
 import { getUserInfo } from './user'
 import { mockHealthData, calculateAge } from '@/pages/profile/health/health-mock'
 
-// 统一的 Mock 开关
-const USE_MOCK = true  // ← true: 使用 Mock 数据; false: 使用真实后端接口
+// 统一的 Mock 开关（默认关闭，使用真实接口）
+const USE_MOCK = false
+
+const ensureObject = (value) => (value && typeof value === 'object' ? value : {})
+const ensureArray = (value) => (Array.isArray(value) ? value : [])
+const normalizeMedicalHistory = (history = {}) => ({
+  pastHistory: ensureArray(history.pastHistory),
+  allergyHistory: ensureArray(history.allergyHistory),
+  familyHistory: ensureArray(history.familyHistory)
+})
+const normalizeHealthRecord = (record = {}) => ({
+  ...record,
+  basicInfo: ensureObject(record.basicInfo),
+  medicalHistory: normalizeMedicalHistory(record.medicalHistory),
+  consultationRecords: ensureArray(record.consultationRecords)
+})
 
 /**
  * 获取我的健康档案
@@ -43,8 +57,9 @@ export const getMyHealthRecord = async () => {
     }
   }
   
-  // 真实接口：GET /patient/health-record（待后端实现）
-  return request.get('/patient/health-record')
+  // 真实接口：GET /patient/health-record
+  const response = await request.get('/patient/health-record')
+  return normalizeHealthRecord(response)
 }
 
 /**
@@ -72,9 +87,9 @@ export const getMedicalRecordDetail = (recordId) => {
     return Promise.resolve(record)
   }
   
-  // 真实接口：GET /common/visit-record/{visit_id}
+  // 真实接口：GET /patient/visit-record/{visitId}
   // 后端返回格式：{ basicInfo: {...}, recordData: {...} }
-  return request.get(`/common/visit-record/${recordId}`)
+  return request.get(`/patient/visit-record/${recordId}`)
 }
 
 /**

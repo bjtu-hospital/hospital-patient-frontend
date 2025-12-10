@@ -207,15 +207,22 @@ const loadRecordDetail = async () => {
   try {
     loading.value = true
     const data = await getMedicalRecordDetail(recordId.value)
+    const basicInfo = data?.basicInfo || {}
+    const recordDetail = data?.recordData || {}
     
     // 合并用户信息（从 Pinia Store 或 API 返回）
     const userInfo = userStore.userInfo || {}
+    const calculateAgeFromStore = userInfo.birthDate ? calculateAge(userInfo.birthDate) : '-'
+    
     recordData.value = {
-      ...data,
-      // 优先使用后端返回数据，不存在则使用用户信息
-      patientName: data.patientName || userInfo.realName || userInfo.name || '-',
-      gender: data.gender || userInfo.gender || '-',
-      age: data.age || (userInfo.birthDate ? calculateAge(userInfo.birthDate) : '-')
+      ...recordDetail,
+      patientName: basicInfo.patientName || userInfo.realName || userInfo.name || '-',
+      gender: basicInfo.gender || userInfo.gender || '-',
+      age: basicInfo.age || userInfo.age || calculateAgeFromStore,
+      outpatientNo: basicInfo.outpatientNo || recordDetail.outpatientNo || '-',
+      visitDate: basicInfo.visitDate || recordDetail.visitDate || '-',
+      department: basicInfo.department || recordDetail.department || '-',
+      doctorName: basicInfo.doctorName || recordDetail.doctorName || '-'
     }
     
     console.log('✅ 病历详情加载成功:', recordData.value)
