@@ -23,12 +23,12 @@
       <view id="medical-record-content" class="record-card">
         <!-- 医院标题 - 双logo -->
         <view class="hospital-header">
-          <image class="logo logo-left" src="/static/BJTU-images/BJTU-logo.png" mode="aspectFit" />
+          <image class="logo logo-left" :src="STATIC_URL + 'BJTU-images/BJTU-logo.png'" mode="aspectFit" />
           <view class="hospital-title">
             <text class="title-main">北京交通大学校医院</text>
             <text class="title-sub">Beijing Jiaotong University Hospital</text>
           </view>
-          <image class="logo logo-right" src="/static/BJTU-images/hospital_logo.png" mode="aspectFit" />
+          <image class="logo logo-right" :src="STATIC_URL + 'BJTU-images/hospital_logo.png'" mode="aspectFit" />
         </view>
 
         <!-- 病历单标题 -->
@@ -176,6 +176,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { STATIC_URL } from '@/config'
 import { getMedicalRecordDetail, generateMedicalRecordPDF, downloadMedicalRecordPDF } from '@/api/health'
 import { useUserStore } from '@/stores/user'
 

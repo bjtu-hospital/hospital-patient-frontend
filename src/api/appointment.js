@@ -2,6 +2,7 @@
  * 预约相关接口
  */
 import request from './request'
+import { STATIC_URL } from '@/config'
 import {
     mockHospitals,
     mockDepartments,
@@ -90,7 +91,7 @@ export const getHospitals = (areaId) => {
       address: area.destination,            // destination → address
       image: area.image_data               // image_data → image (base64)
         ? `data:${area.image_type || 'image/jpeg'};base64,${area.image_data}`
-        : '/static/hospital-default.png',  // 默认图片
+        : STATIC_URL + 'hospital-default.png',  // 默认图片
       distance: 0,                          // 后端暂无距离计算
       isOpen: true,                         // 默认营业
       departmentCount: 0,                   // 后端暂无
@@ -244,7 +245,7 @@ export const getDoctorSchedules = (params) => {
         doctorId: schedule.doctor_id,
         doctorName: schedule.doctor_name,
         doctorTitle: schedule.doctor_title || schedule.title,
-        doctorAvatar: schedule.doctor_avatar || '/static/logo.png',
+        doctorAvatar: schedule.doctor_avatar || STATIC_URL + 'logo.png',
         
         // 科室和医院信息
         departmentId: schedule.minor_dept_id || schedule.department_id,
