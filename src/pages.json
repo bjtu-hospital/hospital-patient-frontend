@@ -175,20 +175,20 @@
 			{
 				"pagePath": "pages/home/index",
 				"text": "首页",
-				"iconPath": "http://8.130.67.12:8000/common/icon?path=tabbar/home.png",
-				"selectedIconPath": "http://8.130.67.12:8000/common/icon?path=tabbar/home-activate.png"
+				"iconPath": "static/tabbar/home.png",
+				"selectedIconPath": "static/tabbar/home-activate.png"
 			},
 			{
 				"pagePath": "pages/message/index",
 				"text": "消息",
-				"iconPath": "http://8.130.67.12:8000/common/icon?path=tabbar/message.png",
-				"selectedIconPath": "http://8.130.67.12:8000/common/icon?path=tabbar/message-activate.png"
+				"iconPath": "static/tabbar/message.png",
+				"selectedIconPath": "static/tabbar/message-activate.png"
 			},
 			{
 				"pagePath": "pages/profile/index",
 				"text": "我的",
-				"iconPath": "http://8.130.67.12:8000/common/icon?path=tabbar/profile.png",
-				"selectedIconPath": "http://8.130.67.12:8000/common/icon?path=tabbar/profile-activate.png"
+				"iconPath": "static/tabbar/profile.png",
+				"selectedIconPath": "static/tabbar/profile-activate.png"
 			}
 		]
 	},
