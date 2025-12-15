@@ -1,7 +1,6 @@
 /**
  * 用户相关的 Mock 数据
- */
-
+ */import { STATIC_URL } from '@/config'
 // ==================== 就诊人数据 ====================
 export const mockPatients = [
   {
@@ -85,7 +84,7 @@ export const mockAppointments = [
     departmentName: '心内科',
     doctorName: '张医生',
     doctorTitle: '主治医师',
-    doctorAvatar: '/static/logo.png',
+    doctorAvatar: STATIC_URL + 'logo.png',
     appointmentDate: '2025-12-03',  // 相对于当前日期的未来时间
     appointmentTime: '上午 08:00-08:30',
     patientName: '张三',
@@ -107,7 +106,7 @@ export const mockAppointments = [
     departmentName: '呼吸内科',
     doctorName: '李主任',
     doctorTitle: '主任医师',
-    doctorAvatar: '/static/logo.png',
+    doctorAvatar: STATIC_URL + 'logo.png',
     appointmentDate: '2025-12-06',
     appointmentTime: '下午 14:00-14:30',
     patientName: '李四',
@@ -129,7 +128,7 @@ export const mockAppointments = [
     departmentName: '眼科',
     doctorName: '王医生',
     doctorTitle: '副主任医师',
-    doctorAvatar: '/static/logo.png',
+    doctorAvatar: STATIC_URL + 'logo.png',
     appointmentDate: '2025-11-28',  // 过去时间
     appointmentTime: '上午 09:00-09:30',
     patientName: '张三',
@@ -151,7 +150,7 @@ export const mockAppointments = [
     departmentName: '消化内科',
     doctorName: '赵医生',
     doctorTitle: '主治医师',
-    doctorAvatar: '/static/logo.png',
+    doctorAvatar: STATIC_URL + 'logo.png',
     appointmentDate: '2025-11-24',
     appointmentTime: '上午 10:00-10:30',
     patientName: '张三',
@@ -173,7 +172,7 @@ export const mockAppointments = [
     departmentName: '口腔科',
     doctorName: '孙医生',
     doctorTitle: '主任医师',
-    doctorAvatar: '/static/logo.png',
+    doctorAvatar: STATIC_URL + 'logo.png',
     appointmentDate: '2025-11-29',
     appointmentTime: '下午 15:00-15:30',
     patientName: '王五',

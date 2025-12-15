@@ -140,6 +140,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import { STATIC_URL } from '@/config'
 import { useUserStore } from '@/stores/user'
 
 // 使用 Pinia Store
@@ -149,19 +150,19 @@ const userStore = useUserStore()
 const bannerList = ref([
   {
     id: 1,
-    image: '/static/home-picture/1.png',
+    image: STATIC_URL + 'home-picture/1.png',
     title: '检查检验结果互认',
     content: '我院已全面实施检查检验结果互认，不同机构之间的检查检验结果可以相互认可。\n\n温馨提示：医生将根据您的病情和检验检查项目进行综合研判。我院的检验报告单下方有互认标识，请注意查看。'
   },
   {
     id: 2,
-    image: '/static/home-picture/2.png',
+    image: STATIC_URL + 'home-picture/2.png',
     title: '预约挂号须知',
     content: '请提前预约，合理安排就诊时间。'
   },
   {
     id: 3,
-    image: '/static/home-picture/3.png',
+    image: STATIC_URL + 'home-picture/3.png',
     title: '健康服务',
     content: '为您提供全方位的健康医疗服务。'
   }

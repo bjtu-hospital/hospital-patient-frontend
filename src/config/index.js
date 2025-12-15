@@ -16,6 +16,9 @@ export const APP_NAME = '北京交通大学校医院'
 // 医院主题色
 export const THEME_COLOR = '#00D5D9'
 
+// 静态资源基础地址
+export const STATIC_URL = 'http://8.130.67.12:8000/common/icon?path='
+
 // 分页配置
 export const PAGE_SIZE = 10
 

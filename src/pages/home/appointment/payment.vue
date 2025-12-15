@@ -121,6 +121,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { STATIC_URL } from '@/config'
 import { usePaymentStore } from '@/stores/payment'
 import { useAppointmentStore } from '@/stores/appointment'
 import { getPaymentMethods, payAppointment } from '@/api/payment'
@@ -279,19 +280,19 @@ const loadPaymentMethods = async () => {
     {
       id: 'alipay',
       name: '支付宝',
-      icon: '/static/payment-icon/alipay.png',
+      icon: STATIC_URL + 'payment-icon/alipay.png',
       description: '使用支付宝扫码支付'
     },
     {
       id: 'wechat',
       name: '微信支付',
-      icon: '/static/payment-icon/wechat-payment.png',
+      icon: STATIC_URL + 'payment-icon/wechat-payment.png',
       description: '使用微信扫码支付'
     },
     {
       id: 'bank',
       name: '银行卡',
-      icon: '/static/payment-icon/bankpay.png',
+      icon: STATIC_URL + 'payment-icon/bankpay.png',
       description: '使用银行卡支付'
     }
   ]
