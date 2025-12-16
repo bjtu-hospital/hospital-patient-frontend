@@ -12,6 +12,7 @@ import uniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 // 导入通用组件
 import EmptyState from './components/EmptyState.vue'
 import AppointmentCard from './components/AppointmentCard.vue'
+import AiBot from './components/ai-bot/ai-bot.vue'
 
 export function createApp() {
 	const app = createSSRApp(App);
@@ -23,6 +24,7 @@ export function createApp() {
 	app.component('uni-icons', uniIcons)
 	app.component('EmptyState', EmptyState)
 	app.component('AppointmentCard', AppointmentCard)
+	app.component('ai-bot', AiBot)
 	
 	return {
 		app,
