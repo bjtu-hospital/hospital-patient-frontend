@@ -44,8 +44,18 @@
             <view class="input-wrapper">
               <uni-icons type="locked" size="20" color="#00D5D9" class="input-icon"></uni-icons>
               <input 
+                v-if="!showPassword"
                 class="input-field" 
-                :type="showPassword ? 'text' : 'password'"
+                type="password"
+                placeholder="请输入密码"
+                v-model="formData.password"
+                placeholder-class="input-placeholder"
+                password
+              />
+              <input 
+                v-else
+                class="input-field" 
+                type="text"
                 placeholder="请输入密码"
                 v-model="formData.password"
                 placeholder-class="input-placeholder"
@@ -54,8 +64,8 @@
                 class="password-toggle" 
                 @tap="togglePassword"
               >
-                <uni-icons v-if="showPassword" type="eye-slash" size="20" color="#999"></uni-icons>
-                <uni-icons v-else type="eye" size="20" color="#999"></uni-icons>
+                <uni-icons v-if="showPassword" type="eye" size="20" color="#00D5D9"></uni-icons>
+                <uni-icons v-else type="eye-slash" size="20" color="#999"></uni-icons>
               </view>
             </view>
           </view>
