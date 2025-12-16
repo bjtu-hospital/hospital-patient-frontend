@@ -54,7 +54,7 @@
       "level": "三甲",
       "type": "综合医院",
       "address": "北京市西城区西直门南大街11号",
-      "image": "/static/hospital-1.png",
+      "image": "http://8.130.67.12:8000/common/icon?path=hospital-1.png",
       "distance": 1.2,
       "isOpen": true,
       "departmentCount": 15,
@@ -335,13 +335,13 @@
       {
         "id": "wechat",
         "name": "微信支付",
-        "icon": "/static/payment-icon/wechat.png",
+        "icon": "http://8.130.67.12:8000/common/icon?path=payment-icon/wechat.png",
         "description": "推荐使用"
       },
       {
         "id": "alipay",
         "name": "支付宝",
-        "icon": "/static/payment-icon/alipay.png",
+        "icon": "http://8.130.67.12:8000/common/icon?path=payment-icon/alipay.png",
         "description": "快捷支付"
       }
     ]

@@ -40,6 +40,7 @@
         :key="appointment.id"
         :appointment="appointment"
         @click="viewDetails"
+        @pay="goToPayment"
         @cancel="cancelAppointment"
         @reschedule="rescheduleAppointment"
         @evaluate="evaluateAppointment"
@@ -57,6 +58,11 @@
           </button>
         </template>
       </EmptyState>
+    </view>
+
+    <!-- 返回首页浮动按钮 -->
+    <view class="home-float-btn" @tap="goToHome">
+      <text class="home-icon">🏠</text>
     </view>
   </view>
 </template>
@@ -232,6 +238,36 @@ const evaluateAppointment = async (appointment) => {
 const goToAppointment = () => {
   uni.navigateTo({
     url: '/pages/home/appointment/select-hospital'
+  })
+}
+
+// 去支付（候补转预约成功后）
+const goToPayment = (appointment) => {
+  // 保存预约信息到 storage，供支付页面使用
+  uni.setStorageSync('lastAppointment', {
+    id: appointment.id,
+    orderNo: appointment.orderNo,
+    hospitalName: appointment.hospitalName,
+    departmentName: appointment.departmentName,
+    doctorName: appointment.doctorName,
+    appointmentDate: appointment.appointmentDate,
+    appointmentTime: appointment.appointmentTime,
+    patientName: appointment.patientName,
+    price: appointment.price,
+    needPay: true,
+    paymentStatus: appointment.paymentStatus || 'pending'
+  })
+  
+  // 跳转到支付页面
+  uni.navigateTo({
+    url: '/pages/home/appointment/payment'
+  })
+}
+
+// 返回首页
+const goToHome = () => {
+  uni.switchTab({
+    url: '/pages/home/index'
   })
 }
 
@@ -565,5 +601,31 @@ onShow(() => {
 .go-appointment-btn:active {
   transform: translateY(-2rpx);
   box-shadow: 0 12rpx 35rpx rgba(0, 191, 204, 0.4);
+}
+
+/* 返回首页浮动按钮 */
+.home-float-btn {
+  position: fixed;
+  right: 32rpx;
+  bottom: 120rpx;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, $hospital-primary 0%, $hospital-primary-light 100%);
+  box-shadow: 0 8rpx 25rpx rgba(0, 191, 204, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  transition: all 0.3s ease;
+}
+
+.home-float-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 4rpx 15rpx rgba(0, 191, 204, 0.5);
+}
+
+.home-icon {
+  font-size: 40rpx;
 }
 </style>

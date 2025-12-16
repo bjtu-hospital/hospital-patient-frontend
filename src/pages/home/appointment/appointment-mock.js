@@ -1,6 +1,7 @@
 /**
  * 预约流程相关的 Mock 数据
  */
+import { STATIC_URL } from '@/config'
 
 // ==================== 医院数据 ====================
 export const mockHospitals = [
@@ -10,7 +11,7 @@ export const mockHospitals = [
     level: '三甲',
     type: '综合医院',
     address: '北京市西城区西直门南大街11号',
-    image: '/static/hospital-1.png',
+    image: STATIC_URL + 'hospital-1.png',
     distance: 1.2,
     isOpen: true,
     departmentCount: 15,
@@ -23,7 +24,7 @@ export const mockHospitals = [
     level: '三甲',
     type: '综合医院',
     address: '北京市朝阳区平乐园100号',
-    image: '/static/hospital-1.png',
+    image: STATIC_URL + 'hospital-1.png',
     distance: 8.5,
     isOpen: true,
     departmentCount: 8,
@@ -36,7 +37,7 @@ export const mockHospitals = [
     level: '三甲',
     type: '综合医院',
     address: '北京市通州区潞县镇南凤一路39号院',
-    image: '/static/hospital-1.png',
+    image: STATIC_URL + 'hospital-1.png',
     distance: 25.3,
     isOpen: true,
     departmentCount: 12,
@@ -49,7 +50,7 @@ export const mockHospitals = [
     level: '三甲',
     type: '',
     address: '',
-    image: '/static/hospital-1.png',
+    image: STATIC_URL + 'hospital-1.png',
     distance: 0,
     isOpen: true,
     departmentCount: 5,
@@ -782,7 +783,7 @@ export const mockDoctors = [
     id: 'doctor_001',
     name: '刘靖',
     title: '主治医师',
-    avatar: '/static/logo.png',
+    avatar: STATIC_URL + 'logo.png',
     departmentId: 'dept_005',
     departmentName: '心内科',
     specialty: '擅长心血管疾病、高血压、冠心病的诊断和治疗',
@@ -794,7 +795,7 @@ export const mockDoctors = [
     id: 'doctor_007',
     name: '张医生',
     title: '主治医师',
-    avatar: '/static/logo.png',
+    avatar: STATIC_URL + 'logo.png',
     departmentId: 'dept_005',
     departmentName: '心内科',
     specialty: '擅长心血管疾病治疗，从医12年',
@@ -806,7 +807,7 @@ export const mockDoctors = [
     id: 'doctor_008',
     name: '李主任',
     title: '主任医师',
-    avatar: '/static/logo.png',
+    avatar: STATIC_URL + 'logo.png',
     departmentId: 'dept_005',
     departmentName: '心内科',
     specialty: '心血管疾病专家，擅长冠心病、心律失常的诊治',

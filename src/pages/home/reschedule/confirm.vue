@@ -123,19 +123,12 @@ const submitReschedule = async () => {
   })
 
   try {
-    await rescheduleAppointment(context.value.appointmentId, {
-      scheduleId: newSchedule.value.id,
-      hospitalId: context.value.hospitalId,
-      departmentId: context.value.departmentId,
-      slotId: newSchedule.value.id + '_slot_001',  // 添加 slotId
-      appointmentDate: newSchedule.value.date,
-      appointmentTime: `${newSchedule.value.period} ${newSchedule.value.startTime}-${newSchedule.value.endTime}`,
-      doctorName: newSchedule.value.doctorName,
-      doctorTitle: newSchedule.value.doctorTitle,
-      price: newSchedule.value.price,
-      patientId: context.value.patientId,
-      patientName: context.value.patientName
+    // 🔧 后端接口只需要 scheduleId
+    const result = await rescheduleAppointment(context.value.appointmentId, {
+      scheduleId: newSchedule.value.scheduleId || newSchedule.value.id
     })
+    
+    console.log('✅ 改约成功:', result)
 
     uni.hideLoading()
     uni.showToast({

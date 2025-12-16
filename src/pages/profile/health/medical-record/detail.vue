@@ -23,12 +23,12 @@
       <view id="medical-record-content" class="record-card">
         <!-- 医院标题 - 双logo -->
         <view class="hospital-header">
-          <image class="logo logo-left" src="/static/BJTU-images/BJTU-logo.png" mode="aspectFit" />
+          <image class="logo logo-left" :src="STATIC_URL + 'BJTU-images/BJTU-logo.png'" mode="aspectFit" />
           <view class="hospital-title">
             <text class="title-main">北京交通大学校医院</text>
             <text class="title-sub">Beijing Jiaotong University Hospital</text>
           </view>
-          <image class="logo logo-right" src="/static/BJTU-images/hospital_logo.png" mode="aspectFit" />
+          <image class="logo logo-right" :src="STATIC_URL + 'BJTU-images/hospital_logo.png'" mode="aspectFit" />
         </view>
 
         <!-- 病历单标题 -->
@@ -176,6 +176,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { STATIC_URL } from '@/config'
 import { getMedicalRecordDetail, generateMedicalRecordPDF, downloadMedicalRecordPDF } from '@/api/health'
 import { useUserStore } from '@/stores/user'
 
@@ -207,15 +208,22 @@ const loadRecordDetail = async () => {
   try {
     loading.value = true
     const data = await getMedicalRecordDetail(recordId.value)
+    const basicInfo = data?.basicInfo || {}
+    const recordDetail = data?.recordData || {}
     
     // 合并用户信息（从 Pinia Store 或 API 返回）
     const userInfo = userStore.userInfo || {}
+    const calculateAgeFromStore = userInfo.birthDate ? calculateAge(userInfo.birthDate) : '-'
+    
     recordData.value = {
-      ...data,
-      // 优先使用后端返回数据，不存在则使用用户信息
-      patientName: data.patientName || userInfo.realName || userInfo.name || '-',
-      gender: data.gender || userInfo.gender || '-',
-      age: data.age || (userInfo.birthDate ? calculateAge(userInfo.birthDate) : '-')
+      ...recordDetail,
+      patientName: basicInfo.patientName || userInfo.realName || userInfo.name || '-',
+      gender: basicInfo.gender || userInfo.gender || '-',
+      age: basicInfo.age || userInfo.age || calculateAgeFromStore,
+      outpatientNo: basicInfo.outpatientNo || recordDetail.outpatientNo || '-',
+      visitDate: basicInfo.visitDate || recordDetail.visitDate || '-',
+      department: basicInfo.department || recordDetail.department || '-',
+      doctorName: basicInfo.doctorName || recordDetail.doctorName || '-'
     }
     
     console.log('✅ 病历详情加载成功:', recordData.value)

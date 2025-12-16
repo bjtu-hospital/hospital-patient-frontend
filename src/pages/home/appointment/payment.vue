@@ -15,7 +15,7 @@
     <view class="order-info-card">
       <view class="order-header">
         <text class="order-title">订单信息</text>
-        <text class="order-id">订单号: {{ paymentStore.currentOrder?.orderId }}</text>
+        <text class="order-id">订单号: {{ appointmentData?.orderNo }}</text>
       </view>
       
       <view class="order-detail">
@@ -45,12 +45,12 @@
     <view class="amount-card">
       <view class="amount-row">
         <text class="amount-label">挂号费</text>
-        <text class="amount-value">¥ {{ paymentStore.currentOrder?.amount }}</text>
+        <text class="amount-value">￥ {{ appointmentData?.price }}</text>
       </view>
       
       <view class="amount-row total">
         <text class="amount-label">应付金额</text>
-        <text class="amount-value total">¥ {{ paymentStore.currentOrder?.amount }}</text>
+        <text class="amount-value total">￥ {{ appointmentData?.price }}</text>
       </view>
     </view>
 
@@ -84,7 +84,7 @@
     </view>
 
     <!-- 倒计时提示 -->
-    <view class="countdown-card" v-if="paymentStore.isPaymentPending">
+    <view class="countdown-card" v-if="appointmentData">
       <view class="countdown-header">
         <uni-icons type="info-filled" size="20" color="#f59e0b"></uni-icons>
         <text class="countdown-title">支付超时提示</text>
@@ -105,10 +105,10 @@
     <view class="bottom-actions">
       <button 
         class="pay-btn" 
-        :disabled="paymentStore.isProcessing || !paymentStore.isPaymentPending"
+        :disabled="paymentStore.isProcessing || !appointmentData"
         @tap="handlePayment"
       >
-        <text v-if="!paymentStore.isProcessing">确认支付 ¥{{ paymentStore.currentOrder?.amount }}</text>
+        <text v-if="!paymentStore.isProcessing">确认支付 ￥{{ appointmentData?.price }}</text>
         <text v-else>处理中...</text>
       </button>
       
@@ -121,12 +121,16 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { STATIC_URL } from '@/config'
 import { usePaymentStore } from '@/stores/payment'
 import { useAppointmentStore } from '@/stores/appointment'
-import { getPaymentMethods, mockPayment, queryPaymentStatus } from '@/api/payment'
+import { getPaymentMethods, payAppointment } from '@/api/payment'
 
 const paymentStore = usePaymentStore()
 const appointmentStore = useAppointmentStore()
+
+// 预约信息（从 lastAppointment 读取）
+const appointmentData = ref(null)
 
 // 支付方式列表
 const paymentMethods = ref([])
@@ -182,9 +186,17 @@ const selectPaymentMethod = (methodId) => {
 
 // 处理支付
 const handlePayment = async () => {
-  if (!paymentStore.currentOrder) {
+  if (!appointmentData.value) {
     uni.showToast({
-      title: '订单信息丢失',
+      title: '预约信息丢失',
+      icon: 'none'
+    })
+    return
+  }
+
+  if (!paymentStore.paymentMethod) {
+    uni.showToast({
+      title: '请选择支付方式',
       icon: 'none'
     })
     return
@@ -194,16 +206,28 @@ const handlePayment = async () => {
   paymentStore.clearPaymentError()
 
   try {
-    // 调用支付接口
-    const result = await mockPayment(paymentStore.currentOrder.orderId)
-    
-    // 支付成功
-    paymentStore.updateOrderStatus('paid', {
-      transactionId: result.transactionId,
-      paidAt: new Date().toISOString()
+    // 调用支付接口 POST /patient/appointments/{id}/pay
+    console.log('💳 调用支付接口:', appointmentData.value.id)
+    const result = await payAppointment(appointmentData.value.id, {
+      method: paymentStore.paymentMethod,
+      remark: '在线支付'
     })
+
+    console.log('✅ 支付成功:', result)
     
     clearInterval(countdownTimer)
+    
+    // 更新本地存储的预约支付状态
+    appointmentData.value.paymentStatus = 'paid'
+    uni.setStorageSync('lastAppointment', appointmentData.value)
+    
+    // 更新 myAppointments 中的支付状态
+    const myAppointments = uni.getStorageSync('myAppointments') || []
+    const index = myAppointments.findIndex(a => a.id === appointmentData.value.id)
+    if (index !== -1) {
+      myAppointments[index].paymentStatus = 'paid'
+      uni.setStorageSync('myAppointments', myAppointments)
+    }
     
     // 显示成功提示
     uni.showModal({
@@ -212,12 +236,8 @@ const handlePayment = async () => {
       showCancel: false,
       confirmText: '查看预约',
       success: () => {
-        // 清空预约流程数据
-        appointmentStore.clearAppointmentData()
-        paymentStore.clearCurrentOrder()
-        
         // 跳转到我的预约
-        uni.navigateTo({
+        uni.reLaunch({
           url: '/pages/profile/appointments'
         })
       }
@@ -241,7 +261,6 @@ const handleCancel = () => {
     success: (res) => {
       if (res.confirm) {
         clearInterval(countdownTimer)
-        paymentStore.clearCurrentOrder()
         uni.navigateBack()
       }
     }
@@ -254,23 +273,43 @@ const goBack = () => {
   uni.navigateBack()
 }
 
-// 加载支付方式
+// 加载支付方式（使用硬编码列表）
 const loadPaymentMethods = async () => {
-  try {
-    const methods = await getPaymentMethods()
-    paymentMethods.value = methods
-  } catch (error) {
-    console.error('加载支付方式失败:', error)
+  // ✅ 使用硬编码的支付方式列表，不依赖后端接口
+  paymentMethods.value = [
+    {
+      id: 'alipay',
+      name: '支付宝',
+      icon: STATIC_URL + 'payment-icon/alipay.png',
+      description: '使用支付宝扫码支付'
+    },
+    {
+      id: 'wechat',
+      name: '微信支付',
+      icon: STATIC_URL + 'payment-icon/wechat-payment.png',
+      description: '使用微信扫码支付'
+    },
+    {
+      id: 'bank',
+      name: '银行卡',
+      icon: STATIC_URL + 'payment-icon/bankpay.png',
+      description: '使用银行卡支付'
+    }
+  ]
+  
+  // 设置默认支付方式
+  if (!paymentStore.paymentMethod) {
+    paymentStore.setPaymentMethod('alipay')
   }
 }
 
 onMounted(() => {
-  // 恢复支付订单
-  paymentStore.restoreOrder()
+  // 从本地存储读取预约信息
+  const lastAppointment = uni.getStorageSync('lastAppointment')
   
-  if (!paymentStore.currentOrder) {
+  if (!lastAppointment) {
     uni.showToast({
-      title: '订单信息丢失',
+      title: '预约信息丢失',
       icon: 'none'
     })
     setTimeout(() => {
@@ -279,20 +318,14 @@ onMounted(() => {
     return
   }
   
-  // 获取预约信息
-  if (appointmentStore.selectedHospital) {
-    appointmentInfo.hospitalName = appointmentStore.selectedHospital.name
-  }
-  if (appointmentStore.selectedDepartment) {
-    appointmentInfo.departmentName = appointmentStore.selectedDepartment.name
-  }
-  if (appointmentStore.selectedDoctor) {
-    appointmentInfo.doctorName = appointmentStore.selectedDoctor.name
-  }
-  if (appointmentStore.selectedSchedule) {
-    appointmentInfo.appointmentDate = appointmentStore.selectedSchedule.date
-    appointmentInfo.appointmentTime = appointmentStore.selectedSchedule.timeSlot
-  }
+  appointmentData.value = lastAppointment
+  
+  // 填充预约信息显示
+  appointmentInfo.hospitalName = lastAppointment.hospitalName || ''
+  appointmentInfo.departmentName = lastAppointment.departmentName || ''
+  appointmentInfo.doctorName = lastAppointment.doctorName || ''
+  appointmentInfo.appointmentDate = lastAppointment.appointmentDate || ''
+  appointmentInfo.appointmentTime = lastAppointment.appointmentTime || ''
   
   // 加载支付方式
   loadPaymentMethods()

@@ -128,26 +128,36 @@ const confirmWaitlist = async () => {
     // 保存选中的就诊人到 Store
     appointmentStore.setSelectedPatient(selectedPatient.value)
 
+    console.log('提交候补数据:', {
+      scheduleId: schedule.value.id,
+      patientId: selectedPatient.value.patientId,  // 🔧 使用 patientId 字段
+      selectedPatient: selectedPatient.value
+    })
+
     const result = await createWaitlist({
       scheduleId: schedule.value.id,
-      patientId: selectedPatient.value.id
+      patientId: selectedPatient.value.patientId  // 🔧 修正为 patientId
     })
+
+    console.log('✅ 候补创建成功，后端返回:', result)
 
     uni.hideLoading()
 
-    // 清空预约流程数据
-    appointmentStore.clearAppointmentData()
+    // 清空预约流程数据（但不要太早清空，waitlist-success 页面还需要用）
+    // appointmentStore.clearAppointmentData()
 
-    // 跳转到候补成功页面
+    // 跳转到候补成功页面，传递 waitlistId 和 queueNumber
     uni.redirectTo({
-      url: `/pages/home/waitlist/waitlist-success?waitlistId=${result.waitlistId}&position=${result.position}`
+      url: `/pages/home/waitlist/waitlist-success?waitlistId=${result.id}&position=${result.queueNumber}`
     })
 
   } catch (error) {
     uni.hideLoading()
+    console.error('❌ 加入候补失败:', error)
     uni.showToast({
       title: error.message || '加入候补失败',
-      icon: 'none'
+      icon: 'none',
+      duration: 2500
     })
   }
 }

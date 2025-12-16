@@ -1,23 +1,26 @@
 <template>
   <view class="home-container">
-    <!-- 顶部医院信息卡片 -->
-    <view class="hospital-info-card">
-      <view class="hospital-header">
-        <view class="hospital-logo">
-          <uni-icons type="home-filled" size="20" color="#00D5D9"></uni-icons>
-        </view>
-        <text class="hospital-name">北京交通大学校医院</text>
-      </view>
-      <view class="info-content">
-        <view class="info-icon">
-          <uni-icons type="sound-filled" size="24" color="#f59e0b"></uni-icons>
-        </view>
-        <view class="info-text">
-          <text class="info-title">检查检验结果互认</text>
-          <text class="info-desc">我院已全面实施检查检验结果互认，不同机构之间的检查检验结果可以相互认可。</text>
-          <text class="info-notice">温馨提示：医生将根据您的病情和检验检查项目进行综合研判。我院的检验报告单下方有互认标识，请注意查看。</text>
-        </view>
-      </view>
+    <!-- 顶部轮播图 -->
+    <view class="banner-swiper-container">
+      <swiper 
+        class="banner-swiper" 
+        :indicator-dots="true"
+        :indicator-color="'rgba(255, 255, 255, 0.5)'"
+        :indicator-active-color="'#00BFCC'"
+        :autoplay="true" 
+        :interval="4000" 
+        :duration="500"
+        :circular="true"
+      >
+        <swiper-item v-for="(banner, index) in bannerList" :key="index">
+          <image 
+            class="banner-image" 
+            :src="banner.image" 
+            mode="widthFix"
+            @tap="handleBannerClick(banner)"
+          />
+        </swiper-item>
+      </swiper>
     </view>
 
     <!-- 用户信息区域 -->
@@ -137,10 +140,45 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import { STATIC_URL } from '@/config'
 import { useUserStore } from '@/stores/user'
 
 // 使用 Pinia Store
 const userStore = useUserStore()
+
+// 轮播图数据
+const bannerList = ref([
+  {
+    id: 1,
+    image: STATIC_URL + 'home-picture/1.png',
+    title: '检查检验结果互认',
+    content: '我院已全面实施检查检验结果互认，不同机构之间的检查检验结果可以相互认可。\n\n温馨提示：医生将根据您的病情和检验检查项目进行综合研判。我院的检验报告单下方有互认标识，请注意查看。'
+  },
+  {
+    id: 2,
+    image: STATIC_URL + 'home-picture/2.png',
+    title: '预约挂号须知',
+    content: '请提前预约，合理安排就诊时间。'
+  },
+  {
+    id: 3,
+    image: STATIC_URL + 'home-picture/3.png',
+    title: '健康服务',
+    content: '为您提供全方位的健康医疗服务。'
+  }
+])
+
+// 点击轮播图事件
+const handleBannerClick = (banner) => {
+  if (banner.content) {
+    uni.showModal({
+      title: banner.title,
+      content: banner.content,
+      showCancel: false,
+      confirmText: '知道了'
+    })
+  }
+}
 
 // 用户信息（从 Store 获取）
 const userInfo = computed(() => {
@@ -285,73 +323,24 @@ onShow(() => {
   }
 }
 
-/* 顶部医院信息卡片 - 队友风格 */
-.hospital-info-card {
-  background: white;
-  margin: 24rpx;
-  border-radius: 12rpx;
-  padding: 24rpx;
-  border: 1rpx solid #e2e8f0;
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+/* 轮播图容器 */
+.banner-swiper-container {
+  margin: $spacing-md;
+  border-radius: $border-radius-lg;
+  overflow: hidden;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
   animation: fade-in-up 0.5s ease-out;
 }
 
-.hospital-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20rpx;
+.banner-swiper {
+  height: 265rpx;  // 根据图片宽高比计算: 假设容器宽度约702rpx (750-48边距), 702/2.65≈265rpx
+  width: 100%;
 }
 
-.hospital-logo {
-  width: 40rpx;
-  height: 40rpx;
-  background: #f0fdff;
-  border-radius: 8rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 12rpx;
-  border: 1rpx solid #e0f2fe;
-}
-
-.hospital-name {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.info-content {
-  display: flex;
-  align-items: flex-start;
-}
-
-.info-icon {
-  font-size: 28rpx;
-  margin-right: 12rpx;
-  margin-top: 2rpx;
-}
-
-.info-title {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 8rpx;
+.banner-image {
+  width: 100%;
+  height: auto;
   display: block;
-}
-
-.info-desc {
-  font-size: 22rpx;
-  color: #475569;
-  line-height: 1.5;
-  margin-bottom: 12rpx;
-  display: block;
-}
-
-.info-notice {
-  font-size: 20rpx;
-  color: #dc2626;
-  line-height: 1.4;
 }
 
 /* 用户信息区域 - 队友风格 */

@@ -2,6 +2,7 @@
  * 预约相关接口
  */
 import request from './request'
+import { STATIC_URL } from '@/config'
 import {
     mockHospitals,
     mockDepartments,
@@ -90,7 +91,7 @@ export const getHospitals = (areaId) => {
       address: area.destination,            // destination → address
       image: area.image_data               // image_data → image (base64)
         ? `data:${area.image_type || 'image/jpeg'};base64,${area.image_data}`
-        : '/static/hospital-default.png',  // 默认图片
+        : STATIC_URL + 'hospital-default.png',  // 默认图片
       distance: 0,                          // 后端暂无距离计算
       isOpen: true,                         // 默认营业
       departmentCount: 0,                   // 后端暂无
@@ -244,7 +245,7 @@ export const getDoctorSchedules = (params) => {
         doctorId: schedule.doctor_id,
         doctorName: schedule.doctor_name,
         doctorTitle: schedule.doctor_title || schedule.title,
-        doctorAvatar: schedule.doctor_avatar || '/static/logo.png',
+        doctorAvatar: schedule.doctor_avatar || STATIC_URL + 'logo.png',
         
         // 科室和医院信息
         departmentId: schedule.minor_dept_id || schedule.department_id,
@@ -412,35 +413,51 @@ export const getMyAppointments = (params = {}) => {
     
     // 映射列表中的每个预约记录
     if (response && response.list) {
-      response.list = response.list.map(appointment => {
-        const mappedStatus = statusMap[appointment.status] || appointment.status
-        
-        // 判断预约日期是否在未来
-        const appointmentDate = new Date(appointment.appointmentDate)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)  // 重置为当天0点
-        appointmentDate.setHours(0, 0, 0, 0)
-        
-        const isPastAppointment = appointmentDate < today  // 过去的日期
-        const isFutureAppointment = appointmentDate >= today  // 今天或未来
-        
-        // 🔧 修复：过去的confirmed状态应该自动转为completed
-        let finalStatus = mappedStatus
-        if (isPastAppointment && mappedStatus === 'pending') {
-          finalStatus = 'completed'  // 过去的待就诊自动变为已完成
-        }
-        
-        // 判断是否可取消/改约（只有未来的待就诊预约才能操作）
-        const canCancel = finalStatus === 'pending' && isFutureAppointment
-        const canReschedule = finalStatus === 'pending' && isFutureAppointment
-        
-        return {
-          ...appointment,
-          status: finalStatus,
-          canCancel,
-          canReschedule
-        }
-      })
+      response.list = response.list
+        // ✅ 修复：过滤掉候补订单（status 为 waitlist 的不应该出现在预约列表）
+        .filter(appointment => {
+          // 排除候补状态的订单
+          return appointment.status !== 'waitlist' && !appointment.isWaitlist
+        })
+        .map(appointment => {
+          // 🔍 调试：打印原始数据，检查后端是否返回 sourceType 字段
+          if (appointment.paymentStatus === 'pending') {
+            console.log('🔍 待支付订单原始数据:', JSON.stringify(appointment, null, 2))
+          }
+          
+          const mappedStatus = statusMap[appointment.status] || appointment.status
+          
+          // 判断预约日期是否在未来
+          const appointmentDate = new Date(appointment.appointmentDate)
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)  // 重置为当天0点
+          appointmentDate.setHours(0, 0, 0, 0)
+          
+          const isPastAppointment = appointmentDate < today  // 过去的日期
+          const isFutureAppointment = appointmentDate >= today  // 今天或未来
+          
+          // 🔧 修复：过去的confirmed状态应该自动转为completed
+          let finalStatus = mappedStatus
+          if (isPastAppointment && mappedStatus === 'pending') {
+            finalStatus = 'completed'  // 过去的待就诊自动变为已完成
+          }
+          
+          // 判断是否可取消/改约（只有未来的待就诊预约才能操作）
+          const canCancel = finalStatus === 'pending' && isFutureAppointment
+          const canReschedule = finalStatus === 'pending' && isFutureAppointment
+          
+          return {
+            ...appointment,
+            status: finalStatus,
+            canCancel,
+            canReschedule,
+            // 🔧 保留候补来源标识和支付状态
+            sourceType: appointment.sourceType,
+            sourceWaitlistId: appointment.sourceWaitlistId,
+            paymentStatus: appointment.paymentStatus,
+            fromWaitlist: appointment.sourceType === 'waitlist'
+          }
+        })
     }
     
     return response
@@ -482,21 +499,26 @@ export const getMyInitiatedAppointments = (params = {}) => {
     }
     
     if (response && response.list) {
-      response.list = response.list.map(appointment => {
-        const mappedStatus = statusMap[appointment.status] || appointment.status
-        
-        const appointmentDate = new Date(appointment.appointmentDate)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        appointmentDate.setHours(0, 0, 0, 0)
-        
-        const isPastAppointment = appointmentDate < today
-        const isFutureAppointment = appointmentDate >= today
-        
-        let finalStatus = mappedStatus
-        if (isPastAppointment && mappedStatus === 'pending') {
-          finalStatus = 'completed'
-        }
+      response.list = response.list
+        // ✅ 修复：过滤掉候补订单
+        .filter(appointment => {
+          return appointment.status !== 'waitlist' && !appointment.isWaitlist
+        })
+        .map(appointment => {
+          const mappedStatus = statusMap[appointment.status] || appointment.status
+          
+          const appointmentDate = new Date(appointment.appointmentDate)
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          appointmentDate.setHours(0, 0, 0, 0)
+          
+          const isPastAppointment = appointmentDate < today
+          const isFutureAppointment = appointmentDate >= today
+          
+          let finalStatus = mappedStatus
+          if (isPastAppointment && mappedStatus === 'pending') {
+            finalStatus = 'completed'
+          }
         
         const canCancel = finalStatus === 'pending' && isFutureAppointment
         const canReschedule = finalStatus === 'pending' && isFutureAppointment
@@ -505,7 +527,12 @@ export const getMyInitiatedAppointments = (params = {}) => {
           ...appointment,
           status: finalStatus,
           canCancel,
-          canReschedule
+          canReschedule,
+          // 🔧 保留候补来源标识和支付状态
+          sourceType: appointment.sourceType,
+          sourceWaitlistId: appointment.sourceWaitlistId,
+          paymentStatus: appointment.paymentStatus,
+          fromWaitlist: appointment.sourceType === 'waitlist'
         }
       })
     }
@@ -558,10 +585,71 @@ export const cancelAppointment = (appointmentId) => {
 }
 
 /**
- * 改约
+ * 获取可改约的排班列表（同医生、同诊室、同号源）
  * @param {String} appointmentId - 预约ID
- * @param {Object} data - 新的预约信息
- * @returns {Promise} 是否成功
+ * @returns {Promise} 返回可改约的排班列表
+ * Response: {
+ *   appointmentId, currentScheduleId, currentDate, currentTimeSection,
+ *   options: [{ scheduleId, date, timeSection, remainingSlots, price, ... }]
+ * }
+ */
+export const getRescheduleOptions = (appointmentId) => {
+  if (USE_MOCK) {
+    // Mock 模式：返回当前预约同科室的其他排班
+    const storedAppointments = uni.getStorageSync('myAppointments') || []
+    const appointment = storedAppointments.find(a => a.id === appointmentId) || 
+                       mockAppointments.find(a => a.id === appointmentId)
+    
+    if (!appointment) {
+      return Promise.reject(new Error('预约不存在'))
+    }
+    
+    // 查找同科室的其他排班
+    const options = mockSchedules
+      .filter(s => 
+        s.departmentId === appointment.departmentId &&
+        s.date !== appointment.appointmentDate
+      )
+      .map(s => ({
+        scheduleId: s.id,
+        date: s.date,
+        timeSection: s.period,
+        remainingSlots: s.remainingSlots || s.availableSlots || 0,
+        price: s.price,
+        hospitalId: s.hospitalId,
+        hospitalName: s.hospitalName || appointment.hospitalName,
+        departmentId: s.departmentId,
+        departmentName: s.departmentName || appointment.departmentName,
+        clinicId: s.clinicId,
+        clinicName: s.clinicName,
+        slotType: s.slotType,
+        doctorName: s.doctorName,
+        doctorTitle: s.doctorTitle,
+        startTime: s.startTime,
+        endTime: s.endTime
+      }))
+    
+    return Promise.resolve({
+      appointmentId: appointment.id,
+      currentScheduleId: appointment.scheduleId,
+      currentDate: appointment.appointmentDate,
+      currentTimeSection: appointment.appointmentTime,
+      options: options
+    })
+  }
+  
+  return request.get(`/patient/appointments/${appointmentId}/reschedule-options`)
+}
+
+/**
+ * 改约到同医生同诊室的其他排班
+ * @param {String} appointmentId - 预约ID
+ * @param {Object} data - 新排班信息 { scheduleId }
+ * @returns {Promise} 返回改约结果
+ * Response: {
+ *   id, appointmentDate, appointmentTime, price, priceDiff,
+ *   status, paymentStatus
+ * }
  */
 export const rescheduleAppointment = (appointmentId, data) => {
   if (USE_MOCK) {
@@ -639,7 +727,13 @@ export const rescheduleAppointment = (appointmentId, data) => {
 
     return Promise.resolve(updatedAppointment)
   }
-  return request.put(`/patient/appointments/${appointmentId}/reschedule`, data)
+  
+  // 🔧 后端接口只需要 scheduleId
+  const apiData = {
+    scheduleId: data.scheduleId
+  }
+  
+  return request.put(`/patient/appointments/${appointmentId}/reschedule`, apiData)
 }
 
 // ==================== 候补相关 ====================
@@ -719,7 +813,7 @@ export const getMyWaitlist = () => {
 /**
  * 取消候补
  * @param {String} waitlistId - 候补ID
- * @returns {Promise} 是否成功
+ * @returns {Promise} 返回 { success: true }
  */
 export const cancelWaitlist = (waitlistId) => {
   if (USE_MOCK) {
@@ -728,7 +822,63 @@ export const cancelWaitlist = (waitlistId) => {
       // 更新状态为已取消，而不是删除记录
       waitlist.status = 'cancelled'
     }
-    return Promise.resolve(true)
+    return Promise.resolve({ success: true })
   }
   return request.delete(`/patient/waitlist/${waitlistId}`)
+}
+
+/**
+ * 候补转预约
+ * @param {String} waitlistId - 候补订单ID
+ * @param {String} paymentMethod - 支付方式 'online' | 'offline'
+ * @returns {Promise} 返回预约订单信息
+ * Response: {
+ *   id: 订单ID,
+ *   appointmentDate: 预约日期,
+ *   appointmentTime: 预约时间,
+ *   doctorName: 医生姓名,
+ *   price: 价格,
+ *   status: 'pending',
+ *   paymentStatus: 'pending',
+ *   createdAt: 创建时间,
+ *   expiresAt: 支付过期时间
+ * }
+ */
+export const convertWaitlistToAppointment = (waitlistId, paymentMethod = 'online') => {
+  if (USE_MOCK) {
+    const waitlist = mockWaitlist.find(w => w.id === waitlistId)
+    if (!waitlist) {
+      return Promise.reject(new Error('候补记录不存在'))
+    }
+    if (waitlist.status !== 'waiting') {
+      return Promise.reject(new Error('当前状态不可转预约'))
+    }
+    
+    // 更新候补状态
+    waitlist.status = 'converted'
+    
+    // 创建预约订单
+    const now = new Date()
+    const expiresAt = new Date(now.getTime() + 30 * 60 * 1000) // 30分钟后过期
+    
+    const appointment = {
+      id: 'appointment_' + Date.now(),
+      appointmentDate: waitlist.appointmentDate,
+      appointmentTime: waitlist.appointmentTime,
+      doctorName: waitlist.doctorName,
+      doctorTitle: waitlist.doctorTitle,
+      hospitalName: waitlist.hospitalName,
+      departmentName: waitlist.departmentName,
+      price: waitlist.price,
+      status: 'pending',
+      paymentStatus: 'pending',
+      createdAt: now.toISOString().replace('T', ' ').slice(0, 19),
+      expiresAt: expiresAt.toISOString().replace('T', ' ').slice(0, 19)
+    }
+    
+    return Promise.resolve(appointment)
+  }
+  return request.post(`/patient/waitlist/${waitlistId}/convert`, {
+    paymentMethod: paymentMethod
+  })
 }
