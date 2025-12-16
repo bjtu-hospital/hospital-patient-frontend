@@ -3,9 +3,11 @@
  */
 
 // API 基础地址
+// ⚠️ 注意：此配置已废弃，请使用 .env 文件中的 VITE_API_BASE_URL
+// 微信小程序真机调试和订阅消息功能需要HTTPS域名
 export const API_BASE_URL = process.env.NODE_ENV === 'development' 
-  ? 'http://localhost:8000'  // 开发环境
-  : 'http://localhost:8000'  // 生产环境
+  ? 'http://localhost:8000'  // 开发环境（仅供参考）
+  : 'http://localhost:8000'  // 生产环境（仅供参考）
 
 // 请求超时时间
 export const REQUEST_TIMEOUT = 10000

@@ -83,6 +83,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
 import { getPatients } from '@/api/user'
 import { createWaitlist } from '@/api/appointment'
+import { subscribeWithAuth, getTemplateIdsByScene } from '@/utils/subscribe'  // ✨ 导入订阅消息工具
+import { saveSubscribeAuth } from '@/api/message'  // ✨ 导入订阅消息API
 
 const appointmentStore = useAppointmentStore()
 
@@ -112,7 +114,7 @@ const selectPatient = () => {
   })
 }
 
-// 确认候补
+// 确认候补（集成订阅消息）
 const confirmWaitlist = async () => {
   if (!selectedPatient.value) {
     uni.showToast({
@@ -123,6 +125,19 @@ const confirmWaitlist = async () => {
   }
 
   try {
+    // ⭐ 步骤1: 请求订阅消息授权（必须在按钮点击事件的第一层调用）
+    console.log('🔔 请求订阅消息授权...')
+    const subscribeResult = await subscribeWithAuth({
+      templateIds: getTemplateIdsByScene('waitlist'),  // 候补场景需要的模板
+      businessData: {
+        patientId: selectedPatient.value.patientId,
+        scheduleId: schedule.value.id
+      }
+    })
+    
+    console.log('📬 订阅授权结果:', subscribeResult)
+    
+    // ⭐ 步骤2: 提交候补（在授权回调中异步执行）
     uni.showLoading({ title: '加入中...' })
 
     // 保存选中的就诊人到 Store
@@ -130,16 +145,39 @@ const confirmWaitlist = async () => {
 
     console.log('提交候补数据:', {
       scheduleId: schedule.value.id,
-      patientId: selectedPatient.value.patientId,  // 🔧 使用 patientId 字段
-      selectedPatient: selectedPatient.value
+      patientId: selectedPatient.value.patientId,
+      // ⭐ 携带订阅消息相关信息
+      wxCode: subscribeResult.code,
+      subscribeAuthResult: subscribeResult.authResult,
+      subscribeScene: 'waitlist'
     })
 
     const result = await createWaitlist({
       scheduleId: schedule.value.id,
-      patientId: selectedPatient.value.patientId  // 🔧 修正为 patientId
+      patientId: selectedPatient.value.patientId,
+      // ⭐ 携带订阅消息相关信息
+      wxCode: subscribeResult.code,
+      subscribeAuthResult: subscribeResult.authResult,
+      subscribeScene: 'waitlist'
     })
 
     console.log('✅ 候补创建成功，后端返回:', result)
+    
+    // ⭐ 步骤3: 如果订阅授权成功，保存授权信息
+    if (subscribeResult.success && subscribeResult.code) {
+      try {
+        await saveSubscribeAuth({
+          scene: 'waitlist',
+          authResult: subscribeResult.authResult,
+          businessData: {
+            waitlistId: result.id
+          }
+        })
+        console.log('✅ 订阅授权信息已保存')
+      } catch (authError) {
+        console.warn('⚠️ 订阅授权信息保存失败:', authError)
+      }
+    }
 
     uni.hideLoading()
 

@@ -95,6 +95,8 @@ import { useAppointmentStore } from '@/stores/appointment'
 import { usePaymentStore } from '@/stores/payment'  // ✅ 导入支付Store
 import { getPatients } from '@/api/user'  // ✨ 导入 API
 import { createAppointment } from '@/api/appointment'  // ✨ 导入预约API
+import { subscribeWithAuth, getTemplateIdsByScene } from '@/utils/subscribe'  // ✨ 导入订阅消息工具
+import { submitWxCode, saveSubscribeAuth } from '@/api/message'  // ✨ 导入订阅消息API
 
 const appointmentStore = useAppointmentStore()
 const paymentStore = usePaymentStore()  // ✅ 使用支付Store
@@ -186,7 +188,7 @@ const changeTime = () => {
   })
 }
 
-// 提交预约
+// 提交预约（集成订阅消息）
 const submitAppointment = async () => {
   if (!selectedPatient.value) {
     uni.showToast({
@@ -201,13 +203,25 @@ const submitAppointment = async () => {
   }
   submitting.value = true
 
-  uni.showLoading({
-    title: '预约中...',
-    mask: true
-  })
-  
   try {
-    // ✅ 调用 API 创建预约(自动判断使用 Mock 还是真实接口)
+    // ⭐ 步骤1: 请求订阅消息授权（必须在按钮点击事件的第一层调用）
+    console.log('🔔 请求订阅消息授权...')
+    const subscribeResult = await subscribeWithAuth({
+      templateIds: getTemplateIdsByScene('appointment'),  // 预约场景需要的模板
+      businessData: {
+        patientId: selectedPatient.value.patientId,
+        scheduleId: appointmentStore.selectedSchedule?.id
+      }
+    })
+    
+    console.log('📬 订阅授权结果:', subscribeResult)
+    
+    // ⭐ 步骤2: 提交预约（在授权回调中异步执行）
+    uni.showLoading({
+      title: '预约中...',
+      mask: true
+    })
+    
     const schedule = appointmentStore.selectedSchedule
     
     const appointmentData = {
@@ -215,7 +229,11 @@ const submitAppointment = async () => {
       hospitalId: Number(appointmentStore.selectedHospital?.id),
       departmentId: Number(appointmentStore.selectedDepartment?.id),
       patientId: Number(selectedPatient.value.patientId),
-      symptoms: ''  // 可选的症状描述
+      symptoms: '',  // 可选的症状描述
+      // ⭐ 携带订阅消息相关信息
+      wxCode: subscribeResult.code,  // 微信code
+      subscribeAuthResult: subscribeResult.authResult,  // 授权结果
+      subscribeScene: 'appointment'  // 业务场景
     }
     
     console.log('📤 提交预约数据:', appointmentData)
@@ -223,6 +241,28 @@ const submitAppointment = async () => {
     const result = await createAppointment(appointmentData)
     
     console.log('✅ 预约成功，后端返回:', result)
+    
+    // ⭐ 步骤3: 如果订阅授权成功且后端需要，保存授权信息
+    if (subscribeResult.success && subscribeResult.code) {
+      try {
+        // 方案A: 单独保存openid（如果后端在创建预约时没有处理）
+        // await submitWxCode(subscribeResult.code)
+        
+        // 方案B: 保存授权详情（用于后续消息发送的精细控制）
+        await saveSubscribeAuth({
+          scene: 'appointment',
+          authResult: subscribeResult.authResult,
+          businessData: {
+            appointmentId: result.id,
+            orderNo: result.orderNo
+          }
+        })
+        console.log('✅ 订阅授权信息已保存')
+      } catch (authError) {
+        // 授权信息保存失败不影响业务流程
+        console.warn('⚠️ 订阅授权信息保存失败:', authError)
+      }
+    }
     
     // 保存预约记录到本地(用于"我的预约"页面显示)
     const appointmentRecord = {
