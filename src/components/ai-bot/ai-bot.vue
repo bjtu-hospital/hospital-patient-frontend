@@ -36,7 +36,7 @@
           </view>
           <view class="header-info">
             <text class="header-title">智能导诊助手</text>
-            <text class="header-subtitle">小北在线为您服务</text>
+            <text class="header-subtitle">在线为您服务</text>
           </view>
         </view>
         <view class="header-actions">
@@ -66,7 +66,7 @@
             <view class="welcome-icon">
               <uni-icons type="heart" size="40" color="#00D5D9"></uni-icons>
             </view>
-            <text class="welcome-title">您好！我是小北</text>
+            <text class="welcome-title">您好！我是智能助手</text>
             <text class="welcome-desc">北医三院智能导诊助手，可以帮您症状分诊、预约挂号、查询健康档案</text>
             <view class="quick-actions">
               <view class="quick-btn" hover-class="quick-btn-hover" @click="quickAsk('我头疼应该挂什么科')">
