@@ -1,20 +1,36 @@
 import { searchDepartments, searchDoctors, getMyAppointments } from './tools/consultation-tools.js';
+import { handleNavigateToolCall, NAVIGATE_TO_PAGE_TOOL } from './tools/router-tool.js';
+import { 
+  queryDepartments, 
+  recommendDepartmentBySymptom, 
+  queryHospitals,
+  QUERY_DEPARTMENTS_TOOL,
+  RECOMMEND_DEPARTMENT_TOOL,
+  QUERY_HOSPITALS_TOOL
+} from './tools/department-tools.js';
 import { reactive } from 'vue';
 
 const API_KEY = 'sk-febff98177ba4c4fbecd2b015b2d52e2'; // In production, this should be in env variables
 const API_URL = 'https://api.deepseek.com/chat/completions';
 
 const SYSTEM_PROMPT = `你是一个医院的智能助手，专门帮助患者解答问题。你的职责包括：
-1. 帮助患者查询科室信息
-2. 帮助患者查找医生
-3. 帮助患者查看自己的预约
+1. 帮助患者查询科室信息（大科室、小科室）
+2. 根据患者症状推荐合适的就诊科室
+3. 帮助患者查找医生
+4. 帮助患者查看自己的预约
+5. 帮助患者查询院区信息
+6. 帮助患者导航到系统的各个功能页面
 
 重要规则：
+- 当用户描述症状时，优先使用 recommendDepartmentBySymptom 工具推荐科室
+- 当用户询问科室列表时，使用 queryDepartments 工具查询
+- 当用户询问院区/医院时，使用 queryHospitals 工具查询
 - 当你调用工具获取数据后，必须根据工具返回的结果，用友好、清晰的中文向用户解释结果
 - 如果工具返回了科室列表，请列出科室名称供用户选择
 - 如果工具返回了医生列表，请列出医生姓名、职称、科室等信息
 - 如果工具返回了预约信息，请清晰地告诉用户预约的时间、医生、科室等
-- 如果用户想要预约某个医生，请提供导航链接，格式为：[NAVIGATE:/pages/home/appointment/select-schedule?doctorId=医生ID]
+- 当用户想要进行某项操作时（如预约、查看预约、管理就诊人等），使用 navigateToPage 工具帮助用户跳转到对应页面
+- 导航成功后，告诉用户已为其跳转到相应页面
 - 始终使用中文回复
 - 保持回复简洁友好`;
 
@@ -64,6 +80,14 @@ const TOOLS = [
       },
     },
   },
+  // 添加页面导航工具
+  NAVIGATE_TO_PAGE_TOOL,
+  // 添加科室查询工具
+  QUERY_DEPARTMENTS_TOOL,
+  // 添加症状推荐科室工具
+  RECOMMEND_DEPARTMENT_TOOL,
+  // 添加院区查询工具
+  QUERY_HOSPITALS_TOOL
 ];
 
 class ContextManager {
@@ -118,6 +142,14 @@ class ContextManager {
             result = await searchDoctors(args.keyword || '');
           } else if (functionName === 'getMyAppointments') {
             result = await getMyAppointments();
+          } else if (functionName === 'navigateToPage') {
+            result = await handleNavigateToolCall(args);
+          } else if (functionName === 'queryDepartments') {
+            result = await queryDepartments(args);
+          } else if (functionName === 'recommendDepartmentBySymptom') {
+            result = await recommendDepartmentBySymptom(args);
+          } else if (functionName === 'queryHospitals') {
+            result = await queryHospitals(args);
           } else {
             result = JSON.stringify({ error: `Unknown function: ${functionName}` });
           }

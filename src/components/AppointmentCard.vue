@@ -24,7 +24,7 @@
       </view>
       
       <view class="time-info">
-        <uni-icons type="calendar" size="18" :color="$hospital-primary"></uni-icons>
+        <uni-icons type="calendar" size="18" color="#00D5D9"></uni-icons>
         <text class="time-text">{{ appointment.appointmentDate }} {{ appointment.appointmentTime }}</text>
       </view>
       
