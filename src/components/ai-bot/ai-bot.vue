@@ -4,35 +4,52 @@
     <view 
       v-if="!isExpanded && isVisible" 
       class="floating-ball" 
-      @click="toggleExpand"
+      :style="ballStyle"
+      @click="onBallClick"
       @longpress="showCloseOption"
+      @touchstart.stop="onBallDragStart"
+      @touchmove.stop.prevent="onBallDragMove"
+      @touchend.stop="onBallDragEnd"
+      @mousedown.stop="onBallDragStart"
     >
-      <view class="ball-inner">
+      <view class="ball-inner" :class="{ 'ball-dragging': isBallDragging }">
         <uni-icons type="headphones" size="26" color="#fff"></uni-icons>
       </view>
-      <view class="ball-ripple"></view>
+      <view class="ball-ripple" v-if="!isBallDragging"></view>
+      <view class="ball-hint" v-if="showBallHint">
+        <text>拖动调整位置</text>
+      </view>
     </view>
 
     <!-- 聊天窗口 -->
-    <view v-if="isExpanded" class="chat-window">
-      <!-- 头部 -->
-      <view class="chat-header">
+    <view v-if="isExpanded" class="chat-window" :style="windowStyle" :class="{ 'window-dragging': isWindowDragging }">
+      <!-- 头部 - 可拖动 -->
+      <view 
+        class="chat-header"
+        @touchstart.stop="onWindowDragStart"
+        @touchmove.stop.prevent="onWindowDragMove"
+        @touchend.stop="onWindowDragEnd"
+        @mousedown.stop="onWindowDragStart"
+      >
         <view class="header-left">
           <view class="ai-avatar">
             <uni-icons type="headphones" size="20" color="#fff"></uni-icons>
           </view>
           <view class="header-info">
-            <text class="header-title">AI 智能助手</text>
-            <text class="header-subtitle">在线为您服务</text>
+            <text class="header-title">智能导诊助手</text>
+            <text class="header-subtitle">小北在线为您服务</text>
           </view>
         </view>
         <view class="header-actions">
-          <view class="action-btn" hover-class="action-btn-hover" @click="clearHistory">
+          <view class="action-btn" hover-class="action-btn-hover" @click.stop="clearHistory">
             <uni-icons type="trash" size="18" color="#64748b"></uni-icons>
           </view>
-          <view class="action-btn close-btn" hover-class="action-btn-hover" @click="toggleExpand">
+          <view class="action-btn close-btn" hover-class="action-btn-hover" @click.stop="toggleExpand">
             <uni-icons type="closeempty" size="18" color="#64748b"></uni-icons>
           </view>
+        </view>
+        <view class="drag-indicator">
+          <view class="drag-line"></view>
         </view>
       </view>
 
@@ -50,17 +67,20 @@
             <view class="welcome-icon">
               <uni-icons type="heart" size="40" color="#00D5D9"></uni-icons>
             </view>
-            <text class="welcome-title">您好！我是AI智能助手</text>
-            <text class="welcome-desc">可以帮您查询科室、医生信息，以及管理预约</text>
+            <text class="welcome-title">您好！我是小北</text>
+            <text class="welcome-desc">北医三院智能导诊助手，可以帮您症状分诊、预约挂号、查询健康档案</text>
             <view class="quick-actions">
-              <view class="quick-btn" hover-class="quick-btn-hover" @click="quickAsk('帮我查询有哪些科室')">
-                <text>🏥 查询科室</text>
+              <view class="quick-btn" hover-class="quick-btn-hover" @click="quickAsk('我头疼应该挂什么科')">
+                <text>🩺 症状问诊</text>
               </view>
-              <view class="quick-btn" hover-class="quick-btn-hover" @click="quickAsk('帮我查询我的预约')">
-                <text>📅 我的预约</text>
+              <view class="quick-btn" hover-class="quick-btn-hover" @click="quickAsk('帮我预约北医三院的内科')">
+                <text>📅 快速预约</text>
               </view>
-              <view class="quick-btn" hover-class="quick-btn-hover" @click="quickAsk('帮我找一位内科医生')">
-                <text>👨‍⚕️ 找医生</text>
+              <view class="quick-btn" hover-class="quick-btn-hover" @click="quickAsk('查看我的预约')">
+                <text>📋 我的预约</text>
+              </view>
+              <view class="quick-btn" hover-class="quick-btn-hover" @click="quickAsk('查看我的健康档案')">
+                <text>💊 健康档案</text>
               </view>
             </view>
           </view>
@@ -160,27 +180,77 @@ export default {
       scrollTop: 0,
       showCloseConfirm: false,
       checkLoginInterval: null,
-      tokenExists: false
+      tokenExists: false,
+      
+      // 悬浮球拖动相关
+      ballPosition: { x: 0, y: 0 },
+      ballStartPos: { x: 0, y: 0 },
+      ballTouchStart: { x: 0, y: 0 },
+      isBallDragging: false,
+      ballMoved: false,
+      showBallHint: false,
+      
+      // 窗口拖动相关
+      windowPosition: { x: 0, y: 0 },
+      windowStartPos: { x: 0, y: 0 },
+      windowTouchStart: { x: 0, y: 0 },
+      isWindowDragging: false,
+      
+      // 屏幕尺寸
+      screenWidth: 375,
+      screenHeight: 667,
+      
+      // 组件尺寸
+      ballSize: 50, // rpx转px后约50
+      windowWidth: 340, // rpx转px后约340
+      windowHeight: 450
     };
   },
   created() {
-    // 初始检查登录状态
     this.checkLoginStatus();
+    this.getScreenSize();
   },
   mounted() {
-    // 定期检查登录状态（处理登录/登出后的状态变化）
     this.checkLoginInterval = setInterval(() => {
       this.checkLoginStatus();
     }, 1000);
+    
+    // 初始化悬浮球位置（右下角）
+    this.$nextTick(() => {
+      this.ballPosition = {
+        x: this.screenWidth - this.ballSize - 15,
+        y: this.screenHeight - this.ballSize - 120
+      };
+      // 初始化窗口位置（居中偏下）
+      this.windowPosition = {
+        x: (this.screenWidth - this.windowWidth) / 2,
+        y: (this.screenHeight - this.windowHeight) / 2
+      };
+    });
+    
+    // 首次显示拖动提示
+    setTimeout(() => {
+      if (!uni.getStorageSync('ai_ball_hint_shown')) {
+        this.showBallHint = true;
+        setTimeout(() => {
+          this.showBallHint = false;
+          uni.setStorageSync('ai_ball_hint_shown', true);
+        }, 3000);
+      }
+    }, 2000);
   },
   beforeUnmount() {
     if (this.checkLoginInterval) {
       clearInterval(this.checkLoginInterval);
     }
+    // 清理可能残留的鼠标事件监听
+    document.removeEventListener('mousemove', this.onBallDragMove);
+    document.removeEventListener('mouseup', this.onBallDragEnd);
+    document.removeEventListener('mousemove', this.onWindowDragMove);
+    document.removeEventListener('mouseup', this.onWindowDragEnd);
   },
   computed: {
     isLoggedIn() {
-      // 使用 data 中的 tokenExists 来保持响应式
       return this.tokenExists;
     },
     displayMessages() {
@@ -200,6 +270,20 @@ export default {
           action: action
         };
       });
+    },
+    ballStyle() {
+      return {
+        left: `${this.ballPosition.x}px`,
+        top: `${this.ballPosition.y}px`,
+        transition: this.isBallDragging ? 'none' : 'left 0.3s ease, top 0.3s ease'
+      };
+    },
+    windowStyle() {
+      return {
+        left: `${this.windowPosition.x}px`,
+        top: `${this.windowPosition.y}px`,
+        transition: this.isWindowDragging ? 'none' : 'left 0.2s ease, top 0.2s ease'
+      };
     }
   },
   watch: {
@@ -212,9 +296,137 @@ export default {
     }
   },
   methods: {
+    getScreenSize() {
+      const info = uni.getSystemInfoSync();
+      this.screenWidth = info.windowWidth;
+      this.screenHeight = info.windowHeight;
+      // 根据屏幕宽度计算组件实际尺寸
+      const ratio = info.windowWidth / 375;
+      this.ballSize = 50 * ratio;
+      this.windowWidth = 340 * ratio;
+      this.windowHeight = 450 * ratio;
+    },
+    
+    // ========== 获取事件坐标（兼容触屏和鼠标）==========
+    getEventPosition(e) {
+      if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      } else if (e.clientX !== undefined) {
+        return { x: e.clientX, y: e.clientY };
+      }
+      return { x: 0, y: 0 };
+    },
+    
+    // ========== 悬浮球拖动 ==========
+    onBallDragStart(e) {
+      const pos = this.getEventPosition(e);
+      this.ballTouchStart = { x: pos.x, y: pos.y };
+      this.ballStartPos = { ...this.ballPosition };
+      this.ballMoved = false;
+      
+      // 鼠标事件需要绑定到document
+      if (e.type === 'mousedown') {
+        document.addEventListener('mousemove', this.onBallDragMove);
+        document.addEventListener('mouseup', this.onBallDragEnd);
+      }
+    },
+    onBallDragMove(e) {
+      const pos = this.getEventPosition(e);
+      const deltaX = pos.x - this.ballTouchStart.x;
+      const deltaY = pos.y - this.ballTouchStart.y;
+      
+      // 判断是否真正移动了（超过5px才算拖动）
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        this.isBallDragging = true;
+        this.ballMoved = true;
+      }
+      
+      if (this.isBallDragging) {
+        let newX = this.ballStartPos.x + deltaX;
+        let newY = this.ballStartPos.y + deltaY;
+        
+        // 边界检测
+        newX = Math.max(0, Math.min(newX, this.screenWidth - this.ballSize));
+        newY = Math.max(0, Math.min(newY, this.screenHeight - this.ballSize - 50));
+        
+        this.ballPosition = { x: newX, y: newY };
+      }
+    },
+    onBallDragEnd() {
+      if (this.isBallDragging) {
+        // 自动吸附到左右两侧
+        const centerX = this.ballPosition.x + this.ballSize / 2;
+        if (centerX < this.screenWidth / 2) {
+          this.ballPosition.x = 10;
+        } else {
+          this.ballPosition.x = this.screenWidth - this.ballSize - 10;
+        }
+      }
+      this.isBallDragging = false;
+      
+      // 移除鼠标事件监听
+      document.removeEventListener('mousemove', this.onBallDragMove);
+      document.removeEventListener('mouseup', this.onBallDragEnd);
+    },
+    onBallClick() {
+      // 只有没有拖动时才触发点击
+      if (!this.ballMoved) {
+        this.toggleExpand();
+      }
+    },
+    
+    // ========== 窗口拖动 ==========
+    onWindowDragStart(e) {
+      const pos = this.getEventPosition(e);
+      this.windowTouchStart = { x: pos.x, y: pos.y };
+      this.windowStartPos = { ...this.windowPosition };
+      
+      // 鼠标事件需要绑定到document
+      if (e.type === 'mousedown') {
+        document.addEventListener('mousemove', this.onWindowDragMove);
+        document.addEventListener('mouseup', this.onWindowDragEnd);
+      }
+    },
+    onWindowDragMove(e) {
+      const pos = this.getEventPosition(e);
+      const deltaX = pos.x - this.windowTouchStart.x;
+      const deltaY = pos.y - this.windowTouchStart.y;
+      
+      if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+        this.isWindowDragging = true;
+      }
+      
+      if (this.isWindowDragging) {
+        let newX = this.windowStartPos.x + deltaX;
+        let newY = this.windowStartPos.y + deltaY;
+        
+        // 边界检测（允许部分超出屏幕）
+        newX = Math.max(-this.windowWidth * 0.3, Math.min(newX, this.screenWidth - this.windowWidth * 0.7));
+        newY = Math.max(0, Math.min(newY, this.screenHeight - 100));
+        
+        this.windowPosition = { x: newX, y: newY };
+      }
+    },
+    onWindowDragEnd() {
+      this.isWindowDragging = false;
+      
+      // 移除鼠标事件监听
+      document.removeEventListener('mousemove', this.onWindowDragMove);
+      document.removeEventListener('mouseup', this.onWindowDragEnd);
+    },
+    
     toggleExpand() {
       this.isExpanded = !this.isExpanded;
       if (this.isExpanded) {
+        // 展开时，将窗口定位到悬浮球附近或居中
+        this.windowPosition = {
+          x: Math.max(10, Math.min(this.ballPosition.x - this.windowWidth + this.ballSize, this.screenWidth - this.windowWidth - 10)),
+          y: Math.max(10, this.ballPosition.y - this.windowHeight - 10)
+        };
+        // 如果窗口超出顶部，放到球的下方
+        if (this.windowPosition.y < 10) {
+          this.windowPosition.y = Math.min(this.ballPosition.y + this.ballSize + 10, this.screenHeight - this.windowHeight - 50);
+        }
         this.$nextTick(() => {
           this.scrollToBottom();
         });
@@ -254,7 +466,16 @@ export default {
       this.sendMessage();
     },
     clearHistory() {
-      contextManager.clearContext();
+      uni.showModal({
+        title: '清空对话',
+        content: '确定要清空当前对话记录吗？',
+        success: (res) => {
+          if (res.confirm) {
+            contextManager.clearContext();
+            uni.showToast({ title: '已清空', icon: 'success' });
+          }
+        }
+      });
     },
     handleAction(url) {
       uni.navigateTo({
@@ -271,7 +492,6 @@ export default {
       // 可以在这里加载更多历史消息
     },
     checkLoginStatus() {
-      // 检查本地存储中的 token
       const token = uni.getStorageSync('token');
       this.tokenExists = !!token;
     }
@@ -298,13 +518,14 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
 // 悬浮球
 .floating-ball {
   position: fixed;
-  bottom: 120rpx;
-  right: 30rpx;
   width: 100rpx;
   height: 100rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
   
   .ball-inner {
     width: 100rpx;
@@ -316,6 +537,12 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
     justify-content: center;
     box-shadow: 0 8rpx 32rpx rgba(0, 213, 217, 0.4);
     z-index: 2;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    
+    &.ball-dragging {
+      transform: scale(1.1);
+      box-shadow: 0 12rpx 40rpx rgba(0, 213, 217, 0.6);
+    }
   }
   
   .ball-ripple {
@@ -325,6 +552,28 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
     border-radius: 50%;
     background: rgba(0, 213, 217, 0.3);
     animation: ripple 2s infinite;
+  }
+  
+  .ball-hint {
+    position: absolute;
+    top: -60rpx;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    padding: 12rpx 24rpx;
+    border-radius: 20rpx;
+    white-space: nowrap;
+    animation: fadeInOut 3s ease;
+    
+    text {
+      font-size: 22rpx;
+      color: #fff;
+    }
+  }
+  
+  @keyframes fadeInOut {
+    0%, 100% { opacity: 0; }
+    10%, 90% { opacity: 1; }
   }
   
   @keyframes ripple {
@@ -342,8 +591,6 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
 // 聊天窗口
 .chat-window {
   position: fixed;
-  bottom: 30rpx;
-  right: 30rpx;
   width: 680rpx;
   height: 900rpx;
   background: #fff;
@@ -352,15 +599,25 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  
+  &.window-dragging {
+    box-shadow: 0 30rpx 80rpx rgba(0, 0, 0, 0.25);
+    opacity: 0.95;
+  }
 }
 
 // 头部
 .chat-header {
   padding: 24rpx 28rpx;
+  padding-bottom: 32rpx;
   background: $primary-gradient;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  cursor: move;
+  user-select: none;
+  -webkit-user-select: none;
   
   .header-left {
     display: flex;
@@ -417,6 +674,20 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
       background: rgba(255, 255, 255, 0.7);
     }
   }
+  
+  .drag-indicator {
+    position: absolute;
+    bottom: 8rpx;
+    left: 50%;
+    transform: translateX(-50%);
+    
+    .drag-line {
+      width: 60rpx;
+      height: 6rpx;
+      background: rgba(255, 255, 255, 0.4);
+      border-radius: 3rpx;
+    }
+  }
 }
 
 // 消息区域
@@ -436,7 +707,7 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 60rpx 20rpx;
+  padding: 40rpx 20rpx;
   
   .welcome-icon {
     width: 120rpx;
@@ -446,7 +717,7 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 30rpx;
+    margin-bottom: 24rpx;
   }
   
   .welcome-title {
@@ -457,10 +728,12 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
   }
   
   .welcome-desc {
-    font-size: 26rpx;
+    font-size: 24rpx;
     color: #64748b;
     text-align: center;
-    margin-bottom: 40rpx;
+    margin-bottom: 32rpx;
+    line-height: 1.5;
+    padding: 0 20rpx;
   }
   
   .quick-actions {
@@ -470,13 +743,14 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
     justify-content: center;
     
     .quick-btn {
-      padding: 16rpx 28rpx;
+      padding: 16rpx 24rpx;
       background: #fff;
       border-radius: 32rpx;
       border: 2rpx solid #e2e8f0;
+      transition: all 0.2s ease;
       
       text {
-        font-size: 26rpx;
+        font-size: 24rpx;
         color: #334155;
       }
     }
@@ -484,6 +758,7 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
     .quick-btn-hover {
       background: $primary-light;
       border-color: $primary-color;
+      transform: scale(0.98);
     }
   }
 }
@@ -492,6 +767,18 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
 .message-item {
   display: flex;
   margin-bottom: 24rpx;
+  animation: messageSlideIn 0.3s ease;
+  
+  @keyframes messageSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20rpx);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
   
   .message-avatar {
     width: 56rpx;
@@ -514,6 +801,7 @@ $primary-gradient: linear-gradient(135deg, #00D5D9 0%, #00B3BA 100%);
       font-size: 28rpx;
       line-height: 1.6;
       word-break: break-word;
+      white-space: pre-wrap;
     }
   }
   
