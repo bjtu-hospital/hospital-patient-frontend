@@ -5,12 +5,11 @@
       v-if="!isExpanded && isVisible" 
       class="floating-ball" 
       :style="ballStyle"
-      @click="onBallClick"
       @longpress="showCloseOption"
-      @touchstart.stop="onBallDragStart"
-      @touchmove.stop.prevent="onBallDragMove"
-      @touchend.stop="onBallDragEnd"
-      @mousedown.stop="onBallDragStart"
+      @touchstart="onBallDragStart"
+      @touchmove.prevent="onBallDragMove"
+      @touchend="onBallDragEnd"
+      @mousedown="onBallDragStart"
     >
       <view class="ball-inner" :class="{ 'ball-dragging': isBallDragging }">
         <uni-icons type="headphones" size="26" color="#fff"></uni-icons>
@@ -26,10 +25,10 @@
       <!-- 头部 - 可拖动 -->
       <view 
         class="chat-header"
-        @touchstart.stop="onWindowDragStart"
-        @touchmove.stop.prevent="onWindowDragMove"
-        @touchend.stop="onWindowDragEnd"
-        @mousedown.stop="onWindowDragStart"
+        @touchstart="onWindowDragStart"
+        @touchmove.prevent="onWindowDragMove"
+        @touchend="onWindowDragEnd"
+        @mousedown="onWindowDragStart"
       >
         <view class="header-left">
           <view class="ai-avatar">
@@ -211,6 +210,7 @@ export default {
     this.getScreenSize();
   },
   mounted() {
+    console.log('[AI-Bot] mounted, tokenExists:', this.tokenExists);
     this.checkLoginInterval = setInterval(() => {
       this.checkLoginStatus();
     }, 1000);
@@ -243,11 +243,15 @@ export default {
     if (this.checkLoginInterval) {
       clearInterval(this.checkLoginInterval);
     }
-    // 清理可能残留的鼠标事件监听
-    document.removeEventListener('mousemove', this.onBallDragMove);
-    document.removeEventListener('mouseup', this.onBallDragEnd);
-    document.removeEventListener('mousemove', this.onWindowDragMove);
-    document.removeEventListener('mouseup', this.onWindowDragEnd);
+    // 清理可能残留的鼠标事件监听（仅H5环境）
+    // #ifdef H5
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('mousemove', this.onBallDragMove);
+      document.removeEventListener('mouseup', this.onBallDragEnd);
+      document.removeEventListener('mousemove', this.onWindowDragMove);
+      document.removeEventListener('mouseup', this.onWindowDragEnd);
+    }
+    // #endif
   },
   computed: {
     isLoggedIn() {
@@ -319,16 +323,20 @@ export default {
     
     // ========== 悬浮球拖动 ==========
     onBallDragStart(e) {
+      console.log('[AI-Bot] onBallDragStart triggered, event type:', e.type);
       const pos = this.getEventPosition(e);
+      console.log('[AI-Bot] start position:', pos);
       this.ballTouchStart = { x: pos.x, y: pos.y };
       this.ballStartPos = { ...this.ballPosition };
       this.ballMoved = false;
       
-      // 鼠标事件需要绑定到document
-      if (e.type === 'mousedown') {
+      // 鼠标事件需要绑定到document（仅H5环境）
+      // #ifdef H5
+      if (e.type === 'mousedown' && typeof document !== 'undefined') {
         document.addEventListener('mousemove', this.onBallDragMove);
         document.addEventListener('mouseup', this.onBallDragEnd);
       }
+      // #endif
     },
     onBallDragMove(e) {
       const pos = this.getEventPosition(e);
@@ -352,9 +360,15 @@ export default {
         this.ballPosition = { x: newX, y: newY };
       }
     },
-    onBallDragEnd() {
-      if (this.isBallDragging) {
-        // 自动吸附到左右两侧
+    onBallDragEnd(e) {
+      console.log('[AI-Bot] onBallDragEnd triggered');
+      console.log('[AI-Bot] ballMoved:', this.ballMoved, 'isBallDragging:', this.isBallDragging);
+      // 如果没有拖动，视为点击，触发展开
+      if (!this.ballMoved) {
+        console.log('[AI-Bot] 视为点击，调用 toggleExpand');
+        this.toggleExpand();
+      } else if (this.isBallDragging) {
+        // 拖动结束，自动吸附到左右两侧
         const centerX = this.ballPosition.x + this.ballSize / 2;
         if (centerX < this.screenWidth / 2) {
           this.ballPosition.x = 10;
@@ -364,15 +378,13 @@ export default {
       }
       this.isBallDragging = false;
       
-      // 移除鼠标事件监听
-      document.removeEventListener('mousemove', this.onBallDragMove);
-      document.removeEventListener('mouseup', this.onBallDragEnd);
-    },
-    onBallClick() {
-      // 只有没有拖动时才触发点击
-      if (!this.ballMoved) {
-        this.toggleExpand();
+      // 移除鼠标事件监听（仅H5环境）
+      // #ifdef H5
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('mousemove', this.onBallDragMove);
+        document.removeEventListener('mouseup', this.onBallDragEnd);
       }
+      // #endif
     },
     
     // ========== 窗口拖动 ==========
@@ -381,11 +393,13 @@ export default {
       this.windowTouchStart = { x: pos.x, y: pos.y };
       this.windowStartPos = { ...this.windowPosition };
       
-      // 鼠标事件需要绑定到document
-      if (e.type === 'mousedown') {
+      // 鼠标事件需要绑定到document（仅H5环境）
+      // #ifdef H5
+      if (e.type === 'mousedown' && typeof document !== 'undefined') {
         document.addEventListener('mousemove', this.onWindowDragMove);
         document.addEventListener('mouseup', this.onWindowDragEnd);
       }
+      // #endif
     },
     onWindowDragMove(e) {
       const pos = this.getEventPosition(e);
@@ -410,13 +424,19 @@ export default {
     onWindowDragEnd() {
       this.isWindowDragging = false;
       
-      // 移除鼠标事件监听
-      document.removeEventListener('mousemove', this.onWindowDragMove);
-      document.removeEventListener('mouseup', this.onWindowDragEnd);
+      // 移除鼠标事件监听（仅H5环境）
+      // #ifdef H5
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('mousemove', this.onWindowDragMove);
+        document.removeEventListener('mouseup', this.onWindowDragEnd);
+      }
+      // #endif
     },
     
     toggleExpand() {
+      console.log('[AI-Bot] toggleExpand called, current isExpanded:', this.isExpanded);
       this.isExpanded = !this.isExpanded;
+      console.log('[AI-Bot] after toggle, isExpanded:', this.isExpanded);
       if (this.isExpanded) {
         // 展开时，将窗口定位到悬浮球附近或居中
         this.windowPosition = {
@@ -493,7 +513,11 @@ export default {
     },
     checkLoginStatus() {
       const token = uni.getStorageSync('token');
+      const oldStatus = this.tokenExists;
       this.tokenExists = !!token;
+      if (oldStatus !== this.tokenExists) {
+        console.log('[AI-Bot] login status changed:', this.tokenExists, 'token:', token ? 'exists' : 'none');
+      }
     }
   }
 };
