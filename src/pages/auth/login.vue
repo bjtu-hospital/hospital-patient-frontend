@@ -44,8 +44,18 @@
             <view class="input-wrapper">
               <uni-icons type="locked" size="20" color="#00D5D9" class="input-icon"></uni-icons>
               <input 
+                v-if="!showPassword"
                 class="input-field" 
-                :type="showPassword ? 'text' : 'password'"
+                type="password"
+                placeholder="请输入密码"
+                v-model="formData.password"
+                placeholder-class="input-placeholder"
+                password
+              />
+              <input 
+                v-else
+                class="input-field" 
+                type="text"
                 placeholder="请输入密码"
                 v-model="formData.password"
                 placeholder-class="input-placeholder"
@@ -54,8 +64,8 @@
                 class="password-toggle" 
                 @tap="togglePassword"
               >
-                <uni-icons v-if="showPassword" type="eye-slash" size="20" color="#999"></uni-icons>
-                <uni-icons v-else type="eye" size="20" color="#999"></uni-icons>
+                <uni-icons v-if="showPassword" type="eye" size="20" color="#00D5D9"></uni-icons>
+                <uni-icons v-else type="eye-slash" size="20" color="#999"></uni-icons>
               </view>
             </view>
           </view>
@@ -98,7 +108,8 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { login } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
@@ -112,6 +123,34 @@ const errorMessage = ref('')
 const formData = reactive({
   phonenumber: '',
   password: ''
+})
+
+// 检查登录状态，如果已登录则跳转到首页
+const checkLoginAndRedirect = async () => {
+  const token = uni.getStorageSync('token')
+  if (token) {
+    try {
+      // 尝试验证 token 是否有效
+      await userStore.checkAuth()
+      console.log('✅ 用户已登录，跳转到首页')
+      uni.reLaunch({
+        url: '/pages/home/index'
+      })
+    } catch (error) {
+      // token 无效，清理并留在登录页
+      console.log('⚠️ Token 无效，需要重新登录')
+    }
+  }
+}
+
+// 页面加载时检查登录状态
+onMounted(() => {
+  checkLoginAndRedirect()
+})
+
+// 页面显示时也检查（处理返回登录页的情况）
+onShow(() => {
+  checkLoginAndRedirect()
 })
 
 // 切换密码显示

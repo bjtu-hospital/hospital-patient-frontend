@@ -6,6 +6,7 @@ import { ref, computed } from 'vue'
 import * as authApi from '@/api/auth'
 import { setToken, removeToken, setUserInfo, removeUserInfo, checkAuth as checkAuthUtil } from '@/utils/auth'
 import { getUserInfo as getUserInfoApi } from '@/api/user'
+import contextManager from '@/components/ai-bot/context-manager.js'
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -88,6 +89,9 @@ export const useUserStore = defineStore('user', () => {
       removeToken()
       removeUserInfo()
       
+      // 清理 AI Bot 上下文
+      contextManager.clearContext()
+
       // 跳转到登录页
       uni.reLaunch({
         url: '/pages/auth/login'

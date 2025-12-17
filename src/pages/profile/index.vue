@@ -138,12 +138,14 @@ const loading = ref(false)
 
 // 是否已认证（需要同时满足：有identifier且verified为true）
 const isVerified = computed(() => {
+  const result = !!(userInfo.value.identifier && userInfo.value.verified === true)
   console.log('🔍 认证状态检查:', {
     identifier: userInfo.value.identifier,
     verified: userInfo.value.verified,
-    isVerified: !!(userInfo.value.identifier && userInfo.value.verified)
+    noPatientProfile: userInfo.value._noPatientProfile,
+    isVerified: result
   })
-  return !!(userInfo.value.identifier && userInfo.value.verified)
+  return result
 })
 
 // 角色类型文本（学生/教师/职工）
