@@ -16,6 +16,26 @@ import {
   RECOMMEND_DOCTORS_TOOL,
   GET_DOCTOR_DETAIL_TOOL
 } from './tools/doctor-tools.js';
+import {
+  getHealthRecord,
+  summarizeHealth,
+  queryConsultationRecords,
+  GET_HEALTH_RECORD_TOOL,
+  SUMMARIZE_HEALTH_TOOL,
+  QUERY_CONSULTATION_RECORDS_TOOL
+} from './tools/health-tools.js';
+import {
+  queryAppointments,
+  getUpcomingAppointments,
+  getAppointmentStats,
+  QUERY_APPOINTMENTS_TOOL,
+  GET_UPCOMING_APPOINTMENTS_TOOL,
+  GET_APPOINTMENT_STATS_TOOL
+} from './tools/appointment-tools.js';
+import {
+  navigateToAppointment,
+  NAVIGATE_TO_APPOINTMENT_TOOL
+} from './tools/smart-appointment-tool.js';
 import { reactive } from 'vue';
 
 const API_KEY = 'sk-febff98177ba4c4fbecd2b015b2d52e2'; // In production, this should be in env variables
@@ -25,11 +45,22 @@ const SYSTEM_PROMPT = `你是一个医院的智能助手，专门帮助患者解
 1. 帮助患者查询科室信息（大科室、小科室）
 2. 根据患者症状推荐合适的就诊科室
 3. 帮助患者查找和推荐医生
-4. 帮助患者查看自己的预约
+4. 帮助患者查看和管理预约记录
 5. 帮助患者查询院区信息
 6. 帮助患者导航到系统的各个功能页面
+7. 帮助患者查询自己的健康档案和病历信息
+8. 总结患者的健康状况和就诊记录
+9. 提醒患者及时就诊，查看即将到来的预约
+10. 智能导航到指定医院和科室的预约挂号页面
 
 重要规则：
+- 当用户说“我要去 XX医院挂 XX科”、“帮我预约 XX医院的 XX科”时，使用 navigateToAppointment 工具智能跳转
+- 当用户询问自己的预约记录、挂号情况时，使用 queryAppointments 工具查询
+- 当用户询问'我什么时候要去看病'、'提醒我就诊'、'最近有什么预约'时，使用 getUpcomingAppointments 工具获取就诊提醒
+- 当用户询问预约统计、常看哪个科室/医生时，使用 getAppointmentStats 工具
+- 当用户询问自己的健康档案、病历、病史信息时，使用 getHealthRecord 工具获取
+- 当用户想要了解自己的整体健康状况或需要健康总结时，使用 summarizeHealth 工具
+- 当用户询问自己的就诊记录、看病历史时，使用 queryConsultationRecords 工具查询
 - 当用户描述症状想找医生时，使用 recommendDoctors 工具推荐医生
 - 当用户询问医生列表或搜索医生时，使用 queryDoctors 工具查询
 - 当用户想了解某个医生详情时，使用 getDoctorDetail 工具
@@ -104,7 +135,21 @@ const TOOLS = [
   // 添加医生推荐工具
   RECOMMEND_DOCTORS_TOOL,
   // 添加医生详情工具
-  GET_DOCTOR_DETAIL_TOOL
+  GET_DOCTOR_DETAIL_TOOL,
+  // 添加健康档案工具
+  GET_HEALTH_RECORD_TOOL,
+  // 添加健康状况总结工具
+  SUMMARIZE_HEALTH_TOOL,
+  // 添加就诊记录查询工具
+  QUERY_CONSULTATION_RECORDS_TOOL,
+  // 添加预约查询工具
+  QUERY_APPOINTMENTS_TOOL,
+  // 添加就诊提醒工具
+  GET_UPCOMING_APPOINTMENTS_TOOL,
+  // 添加预约统计工具
+  GET_APPOINTMENT_STATS_TOOL,
+  // 添加智能预约导航工具
+  NAVIGATE_TO_APPOINTMENT_TOOL
 ];
 
 class ContextManager {
@@ -173,6 +218,20 @@ class ContextManager {
             result = await recommendDoctors(args);
           } else if (functionName === 'getDoctorDetail') {
             result = await getDoctorDetail(args);
+          } else if (functionName === 'getHealthRecord') {
+            result = await getHealthRecord();
+          } else if (functionName === 'summarizeHealth') {
+            result = await summarizeHealth(args);
+          } else if (functionName === 'queryConsultationRecords') {
+            result = await queryConsultationRecords(args);
+          } else if (functionName === 'queryAppointments') {
+            result = await queryAppointments(args);
+          } else if (functionName === 'getUpcomingAppointments') {
+            result = await getUpcomingAppointments(args);
+          } else if (functionName === 'getAppointmentStats') {
+            result = await getAppointmentStats();
+          } else if (functionName === 'navigateToAppointment') {
+            result = await navigateToAppointment(args);
           } else {
             result = JSON.stringify({ error: `Unknown function: ${functionName}` });
           }
