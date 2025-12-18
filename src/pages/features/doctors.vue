@@ -1,575 +1,1009 @@
 <template>
-  <view class="doctors-container">
-    <!-- 搜索和筛选 -->
-    <view class="search-section">
-      <view class="search-bar">
-        <Search :size="18" color="#64748b" class="search-icon" />
+  <view class="container">
+    <!-- 导航栏 -->
+    <view class="custom-nav">
+      <view class="nav-back" @tap="goBack">
+        <text class="back-icon">‹</text>
+        <text class="back-text">返回</text>
+      </view>
+      <text class="nav-title">{{ navTitle }}</text>
+      <view class="nav-right"></view>
+    </view>
+
+    <!-- 院区选择 -->
+    <view v-if="step === 'hospital'" class="page-content">
+      <view class="page-header">
+        <text class="title">选择院区</text>
+        <text class="subtitle">请选择就诊院区，或直接搜索医生</text>
+      </view>
+      
+      <view class="search-box">
         <input 
-          class="search-input" 
-          type="text" 
-          placeholder="搜索医生姓名或专长..."
-          v-model="searchKeyword"
+          placeholder="请输入医生姓名关键字"
+          v-model="hospitalKeyword"
+          class="search-input"
+          @confirm="handleGlobalSearch"
         />
-        <view class="filter-btn" @tap="showFilter">
-          <Filter :size="16" color="#64748b" />
+        <view class="search-btn" @tap="handleGlobalSearch">搜索</view>
+      </view>
+      
+      <view class="list-header">
+        <text class="section-title">医院列表</text>
+      </view>
+      
+      <view class="hospital-list">
+        <view 
+          class="hospital-card" 
+          v-for="hospital in filteredHospitals" 
+          :key="hospital.area_id"
+          @tap="selectHospital(hospital)"
+        >
+          <view class="card-header">
+            <text class="hospital-name">{{ hospital.name }}</text>
+            <view class="level-tag">{{ hospital.level }}</view>
+          </view>
+          <view class="hospital-details">
+            <text class="detail-item">类型：{{ hospital.type }}</text>
+            <text class="detail-item">地址：{{ hospital.destination }}</text>
+          </view>
         </view>
+      </view>
+      
+      <view v-if="filteredHospitals.length === 0" class="empty-state">
+        <text class="empty-title">未找到相关医院</text>
       </view>
     </view>
 
-    <!-- 科室分类 -->
-    <view class="department-tabs">
-      <view 
-        class="tab-item" 
-        :class="{ active: selectedDept === dept.key }"
-        v-for="dept in departmentTabs" 
-        :key="dept.key"
-        @tap="switchDepartment(dept.key)"
-      >
-        <text class="tab-text">{{ dept.name }}</text>
-        <text class="tab-count">({{ dept.count }})</text>
+    <!-- 科室选择 -->
+    <view v-if="step === 'department'" class="page-content">
+      <view class="page-header">
+        <text class="title">选择科室</text>
+        <text class="subtitle">内号源，每日早7点开始可挂第8日号源</text>
+      </view>
+      
+      <view class="search-box">
+        <input 
+          placeholder="请输入科室名" 
+          v-model="deptKeyword" 
+          class="search-input"
+          @confirm="handleDeptSearch"
+        />
+        <view class="search-btn" @tap="handleDeptSearch">搜索</view>
+      </view>
+      
+      <view class="current-hospital" @tap="viewHospitalIntro">
+        <text class="hospital-name">{{ selectedHospital?.name }}</text>
+        <view class="hospital-info">
+          <text class="hospital-level">{{ selectedHospital?.level }}</text>
+          <text class="intro-link">查看简介</text>
+        </view>
+      </view>
+      
+      <view v-if="deptKeyword.trim()" class="department-section">
+        <view class="list-header">
+          <text class="section-title">搜索结果</text>
+          <text class="count-text">{{ filteredDepartments.length }}个科室</text>
+        </view>
+        
+        <view class="department-list">
+          <view 
+            class="dept-card" 
+            v-for="dept in filteredDepartments" 
+            :key="dept.minor_dept_id"
+            @tap="selectDepartment(dept)"
+          >
+            <view class="dept-info">
+              <text class="dept-name">{{ dept.name }}</text>
+              <text class="dept-description" v-if="dept.description">{{ dept.description }}</text>
+            </view>
+            <text class="arrow-icon">›</text>
+          </view>
+        </view>
+        
+        <view v-if="filteredDepartments.length === 0" class="empty-state">
+          <text class="empty-title">未找到相关科室</text>
+        </view>
+      </view>
+      
+      <view v-else>
+        <view class="categories">
+          <view 
+            class="category-card" 
+            v-for="category in departmentCategories" 
+            :key="category.major_dept_id"
+            :class="{ active: selectedCategory === category.major_dept_id }"
+            @tap="selectCategory(category.major_dept_id)"
+          >
+            <text class="category-name">{{ category.name }}</text>
+          </view>
+        </view>
+        
+        <view v-if="selectedCategory" class="department-section">
+          <view class="list-header">
+            <text class="section-title">科室列表</text>
+            <text class="count-text">{{ categoryDepartments.length }}个科室</text>
+          </view>
+          
+          <view class="department-list">
+            <view 
+              class="dept-card" 
+              v-for="dept in categoryDepartments" 
+              :key="dept.minor_dept_id"
+              @tap="selectDepartment(dept)"
+            >
+              <view class="dept-info">
+                <text class="dept-name">{{ dept.name }}</text>
+                <text class="dept-description" v-if="dept.description">{{ dept.description }}</text>
+              </view>
+              <text class="arrow-icon">›</text>
+            </view>
+          </view>
+          
+          <view v-if="categoryDepartments.length === 0" class="empty-state">
+            <text class="empty-title">当前分类暂无科室</text>
+          </view>
+        </view>
+        
+        <view v-if="!selectedCategory" class="selection-prompt">
+          <text class="prompt-title">请选择科室分类</text>
+        </view>
       </view>
     </view>
 
     <!-- 医生列表 -->
-    <view class="doctors-list">
-      <view 
-        class="doctor-card" 
-        v-for="doctor in filteredDoctors" 
-        :key="doctor.id"
-        @tap="viewDoctorDetail(doctor)"
-      >
-        <view class="doctor-info">
-          <view class="doctor-header">
-            <view class="doctor-avatar">
-              <text class="avatar-text">{{ doctor.name.charAt(0) }}</text>
-            </view>
-            <view class="doctor-basic">
-              <text class="doctor-name">{{ doctor.name }}</text>
-              <text class="doctor-title">{{ doctor.title }}</text>
-              <text class="doctor-dept">{{ doctor.department }}</text>
-            </view>
-            <view class="doctor-level" :class="doctor.level">
-              <text class="level-text">{{ getLevelText(doctor.level) }}</text>
-            </view>
-          </view>
+    <view v-if="step === 'doctors' && !showDoctorDetail" class="page-content">
+      <view class="path-nav">
+        <text class="path-item" @tap="goToHospital">{{ selectedHospital?.name || '全部医院' }}</text>
+        <text class="separator">/</text>
+        <text class="path-item current" @tap="goToDepartment">{{ selectedDepartment?.name || '全部科室' }}</text>
+        <text v-if="isGlobalSearch" class="search-tag">搜索结果</text>
+      </view>
+      
+      <view class="dept-info-card" v-if="selectedDepartment && !isGlobalSearch">
+        <view class="dept-info-header">
+          <text class="dept-name">{{ selectedDepartment.name }}</text>
+        </view>
+        <view class="dept-info-content" v-if="selectedDepartment.description">
+          <text class="info-text">{{ selectedDepartment.description }}</text>
+        </view>
+      </view>
+      
+      <view v-if="isGlobalSearch" class="global-search-info">
+        <text class="search-keyword">搜索关键词：{{ globalSearchKeyword }}</text>
+        <text class="search-result">找到 {{ filteredDoctors.length }} 个相关医生</text>
+      </view>
+      
+      <view class="search-box">
+        <input 
+          placeholder="搜索医生姓名或专长..."
+          v-model="searchKeyword" 
+          class="search-input"
+          @confirm="searchDoctors"
+        />
+        <view class="search-btn" @tap="searchDoctors">搜索</view>
+      </view>
 
-          <view class="doctor-specialty">
-            <text class="specialty-label">专业特长：</text>
-            <text class="specialty-content">{{ doctor.specialty }}</text>
+      <!-- 筛选区域 -->
+      <view class="filter-section">
+        <view class="filter-group">
+          <text class="filter-label">职称筛选：</text>
+         <view class="filter-tags">
+          <view 
+            class="filter-tag" 
+            :class="{ active: filterTitle === 'all' }" 
+            @tap="filterTitle = 'all'"
+          >
+            全部
           </view>
-
-          <view class="doctor-stats">
-            <view class="stat-item">
-              <text class="stat-label">出诊时间</text>
-              <text class="stat-value">{{ doctor.workTime }}</text>
-            </view>
-            <view class="stat-item">
-              <text class="stat-label">挂号费</text>
-              <text class="stat-value price">¥{{ doctor.price }}</text>
-            </view>
-            <view class="stat-item">
-              <text class="stat-label">今日余号</text>
-              <text class="stat-value" :class="{ low: doctor.todaySlots < 5 }">
-                {{ doctor.todaySlots }}
-              </text>
-            </view>
+          <view 
+            class="filter-tag" 
+            :class="{ active: filterTitle === '主任医师' }" 
+            @tap="filterTitle = '主任医师'"
+          >
+            主任医师
           </view>
+          <view 
+            class="filter-tag" 
+            :class="{ active: filterTitle === '副主任医师' }" 
+            @tap="filterTitle = '副主任医师'"
+          >
+            副主任医师
+          </view>
+          <view 
+            class="filter-tag" 
+            :class="{ active: filterTitle === '其他职称' }" 
+            @tap="filterTitle = '其他职称'"
+          >
+            其他职称
+          </view>
+        </view>
+        </view>
 
-          <!-- 医生介绍 -->
-          <view class="doctor-intro" v-if="doctor.introduction">
-            <text class="intro-label">医生简介：</text>
-            <text class="intro-content">{{ doctor.introduction }}</text>
+        <view v-if="isGlobalSearch && availableDepartments.length > 0" class="filter-group">
+          <text class="filter-label">科室筛选：</text>
+          <view class="filter-tags">
+            <view class="filter-tag" :class="{ active: filterDepartment === 'all' }" @tap="filterDepartment = 'all'">全部科室</view>
+            <view 
+              class="filter-tag" 
+              v-for="dept in availableDepartments" 
+              :key="dept.minor_dept_id"
+              :class="{ active: filterDepartment === dept.minor_dept_id.toString() }"
+              @tap="filterDepartment = dept.minor_dept_id.toString()"
+            >
+              {{ dept.name }}
+            </view>
           </view>
         </view>
 
-        <view class="doctor-actions">
-          <button 
-            class="appointment-btn" 
-            :class="{ disabled: doctor.todaySlots === 0 }"
-            @tap.stop="appointmentWithDoctor(doctor)"
-          >
-            {{ doctor.todaySlots > 0 ? '立即预约' : '无号源' }}
-          </button>
+        <view v-if="hasActiveFilters" class="filter-actions">
+          <text class="filter-count">已选：{{ activeFilterCount }}个条件</text>
+          <button class="clear-btn" @tap="clearFilters">重置筛选</button>
         </view>
       </view>
 
-      <!-- 空状态 -->
-      <view class="empty-state" v-if="filteredDoctors.length === 0">
-        <Users :size="48" color="#cbd5e1" />
-        <text class="empty-text">未找到相关医生</text>
-        <text class="empty-desc">请尝试其他搜索条件</text>
+      <!-- 医生列表 -->
+      <view class="doctors-section">
+        <view class="doctors-header">
+          <text class="section-title">{{ isGlobalSearch ? '搜索结果' : '医生列表' }}</text>
+          <text class="count-text">{{ filteredDoctors.length }}位医生</text>
+        </view>
+        
+        <view class="doctors-list">
+          <view class="doctor-card" v-for="doctor in filteredDoctors" :key="doctor.doctor_id">
+            <view class="doctor-header">
+              <image 
+                v-if="doctor.avatar"
+                :src="doctor.avatar" 
+                class="avatar"
+                mode="aspectFill"
+              />
+              <view v-else class="avatar placeholder">
+                {{ doctor.name.charAt(0) }}
+              </view>
+              <view class="doctor-info">
+                <view class="name-row">
+                  <text class="doctor-name">{{ doctor.name }}</text>
+                  <view class="title-tag">{{ doctor.title }}</view>
+                </view>
+                <text class="doctor-dept">{{ doctor.department_name }}</text>
+              </view>
+            </view>
+            
+            <view class="doctor-specialty">
+              <text class="specialty-text">{{ doctor.specialty }}</text>
+            </view>
+            <view class="doctor-footer">
+              <view class="view-detail" @tap="viewDoctorDetail(doctor)">查看详情</view>
+            </view>
+          </view>
+          
+          <view v-if="filteredDoctors.length === 0" class="empty-state">
+            <text class="empty-title">未找到相关医生</text>
+            <view class="action-buttons">
+              <button class="action-btn" @tap="clearFilters">清除筛选</button>
+              <button class="action-btn primary" @tap="!isGlobalSearch ? goToDepartment() : goToHospital()">
+                {{ !isGlobalSearch ? '返回科室' : '返回院区' }}
+              </button>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 医生详情页 -->
+    <view v-if="showDoctorDetail && selectedDoctor" class="page-content">
+      <view class="doctor-detail-container">
+        <view class="doctor-basic">
+          <view class="avatar-section">
+            <image 
+              v-if="selectedDoctor.avatar"
+              :src="selectedDoctor.avatar" 
+              class="doctor-avatar"
+              mode="aspectFill"
+            />
+            <view v-else class="doctor-avatar placeholder">
+              {{ selectedDoctor.name.charAt(0) }}
+            </view>
+          </view>
+          
+          <view class="info-section">
+            <view class="name-row">
+              <text class="doctor-name">{{ selectedDoctor.name }}</text>
+              <view class="title-badge">{{ selectedDoctor.title }}</view>
+            </view>
+            <text class="hospital-info">{{ selectedDoctor.department_name }}</text>
+          </view>
+        </view>
+
+        <view class="info-card">
+          <view class="info-header">
+            <text class="info-title">专业信息</text>
+          </view>
+          <view class="info-content">
+            <view class="info-item">
+              <text class="item-label">专业特长</text>
+              <text class="item-value">{{ selectedDoctor.specialty }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="info-card">
+          <view class="info-header">
+            <text class="info-title">详细介绍</text>
+          </view>
+          <view class="info-content">
+            <text class="intro-text">{{ selectedDoctor.introduction }}</text>
+          </view>
+        </view>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Search, Filter, Users, Star, Award } from 'lucide-vue-next'
+import { onLoad } from '@dcloudio/uni-app'
+import { useDoctorsStore } from '@/api/doctors.js'
 
-const searchKeyword = ref('')
-const selectedDept = ref('all')
+const store = useDoctorsStore()
 
-// 科室标签
-const departmentTabs = ref([
-  { key: 'all', name: '全部', count: 15 },
-  { key: 'internal', name: '内科', count: 6 },
-  { key: 'surgical', name: '外科', count: 4 },
-  { key: 'specialist', name: '专科', count: 5 }
-])
+const {
+  step,
+  searchKeyword,
+  deptKeyword,
+  hospitalKeyword,
+  filterTitle,
+  filterDepartment,
+  selectedCategory,
+  selectedHospital,
+  selectedDepartment,
+  isGlobalSearch,
+  globalSearchKeyword,
+  selectedDoctor,
+  showDoctorDetail,
+  hospitals,
+  departmentCategories,
+  departments,
+  doctors,
+  navTitle,
+  filteredHospitals,
+  filteredDepartments,
+  categoryDepartments,
+  availableDepartments,
+  activeFilterCount,
+  hasActiveFilters,
+  filteredDoctors,
+  init,
+  goBack,
+  goToHospital,
+  goToDepartment,
+  selectHospital,
+  handleDeptSearch,
+  handleGlobalSearch,
+  searchDoctors,
+  viewHospitalIntro,
+  selectCategory,
+  selectDepartment,
+  clearFilters,
+  viewDoctorDetail
+} = store
 
-// 医生数据
-const doctors = ref([
-  {
-    id: 1,
-    name: '张建国',
-    title: '主任医师/教授',
-    department: '心血管内科',
-    specialty: '冠心病、心律失常、心力衰竭的诊治',
-    introduction: '从事心血管内科临床工作30余年，擅长复杂心血管疾病的诊治...',
-    level: 'expert',
-    workTime: '周一至周五上午',
-    price: 35,
-    todaySlots: 3,
-    category: 'internal'
-  },
-  {
-    id: 2,
-    name: '李淑华',
-    title: '副主任医师',
-    department: '呼吸内科',
-    specialty: '呼吸系统感染、慢性阻塞性肺病',
-    introduction: '具有丰富的呼吸系统疾病诊治经验...',
-    level: 'senior',
-    workTime: '周二、周四全天',
-    price: 25,
-    todaySlots: 8,
-    category: 'internal'
-  },
-  {
-    id: 3,
-    name: '王明',
-    title: '主治医师',
-    department: '普通外科',
-    specialty: '腹腔镜微创手术、疝气修补',
-    introduction: '专注于微创外科技术的临床应用...',
-    level: 'regular',
-    workTime: '周一、周三、周五',
-    price: 20,
-    todaySlots: 12,
-    category: 'surgical'
-  },
-  {
-    id: 4,
-    name: '陈雅丽',
-    title: '主任医师',
-    department: '妇科',
-    specialty: '妇科肿瘤、内分泌疾病',
-    introduction: '妇科疑难病症诊治专家...',
-    level: 'expert',
-    workTime: '周二、周四上午',
-    price: 40,
-    todaySlots: 5,
-    category: 'specialist'
-  },
-  {
-    id: 5,
-    name: '赵光明',
-    title: '副主任医师',
-    department: '眼科',
-    specialty: '白内障、青光眼、眼底病',
-    introduction: '眼科常见病多发病诊治经验丰富...',
-    level: 'senior',
-    workTime: '周一至周五',
-    price: 30,
-    todaySlots: 0,
-    category: 'specialist'
-  }
-])
-
-// 过滤后的医生列表
-const filteredDoctors = computed(() => {
-  let filtered = doctors.value
-
-  if (selectedDept.value !== 'all') {
-    filtered = filtered.filter(doctor => doctor.category === selectedDept.value)
-  }
-
-  if (searchKeyword.value.trim()) {
-    const keyword = searchKeyword.value.trim().toLowerCase()
-    filtered = filtered.filter(doctor => 
-      doctor.name.toLowerCase().includes(keyword) || 
-      doctor.specialty.toLowerCase().includes(keyword) ||
-      doctor.department.toLowerCase().includes(keyword)
-    )
-  }
-
-  return filtered
-})
-
-// 切换科室
-const switchDepartment = (deptKey) => {
-  selectedDept.value = deptKey
-}
-
-// 获取医生级别文本
-const getLevelText = (level) => {
-  const levelMap = {
-    expert: '专家',
-    senior: '资深',
-    regular: '普通'
-  }
-  return levelMap[level] || level
-}
-
-// 显示筛选
-const showFilter = () => {
-  uni.showActionSheet({
-    itemList: ['按科室筛选', '按职称筛选', '按价格筛选', '只看有号医生'],
-    success: (res) => {
-      uni.showToast({
-        title: `筛选功能开发中`,
-        icon: 'none'
-      })
-    }
-  })
-}
-
-// 查看医生详情
-const viewDoctorDetail = (doctor) => {
-  uni.showModal({
-    title: doctor.name,
-    content: `${doctor.title}\n科室：${doctor.department}\n专长：${doctor.specialty}\n出诊：${doctor.workTime}\n挂号费：¥${doctor.price}`,
-    showCancel: false,
-    confirmText: '知道了'
-  })
-}
-
-// 预约医生
-const appointmentWithDoctor = (doctor) => {
-  if (doctor.todaySlots === 0) {
-    uni.showToast({
-      title: '该医生今日无号源',
-      icon: 'none'
-    })
-    return
-  }
-
-  uni.showModal({
-    title: '预约' + doctor.name,
-    content: `确定要预约${doctor.name} ${doctor.title}吗？\n挂号费：¥${doctor.price}`,
-    success: (res) => {
-      if (res.confirm) {
-        // 保存医生信息
-        uni.setStorageSync('selectedDoctor', doctor)
-        
-        // 跳转到选择时间页面
-        uni.navigateTo({
-          url: '/pages/appointment/select-time'
-        })
-      }
-    }
-  })
-}
-
-onMounted(() => {
-  console.log('科室专家页面加载')
+onLoad(async () => {
+  await init()
 })
 </script>
 
 <style lang="scss" scoped>
-.doctors-container {
+.container {
   background: #f8fafc;
   min-height: 100vh;
-  padding: 24rpx;
-  padding-bottom: 120rpx;
+  padding-top: 88rpx;
 }
 
-/* 搜索栏 - 队友风格 */
-.search-section {
-  margin-bottom: 24rpx;
+.custom-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 88rpx;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24rpx;
+  border-bottom: 1rpx solid #e2e8f0;
+  z-index: 1000;
+  
+  .nav-back {
+    display: flex;
+    align-items: center;
+    padding: 16rpx;
+    .back-icon {
+      font-size: 36rpx;
+      color: #0f172a;
+      margin-right: 8rpx;
+    }
+    .back-text {
+      font-size: 28rpx;
+      color: #0f172a;
+    }
+  }
+  
+  .nav-title {
+    font-size: 32rpx;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  
+  .nav-right {
+    width: 100rpx;
+  }
 }
 
-.search-bar {
+.page-content {
+  padding: 0 24rpx 40rpx;
+}
+
+.page-header {
+  padding: 24rpx 0;
+  .title {
+    font-size: 36rpx;
+    font-weight: 700;
+    color: #0f172a;
+    display: block;
+    margin-bottom: 8rpx;
+  }
+  .subtitle {
+    font-size: 24rpx;
+    color: #64748b;
+    line-height: 1.4;
+  }
+}
+
+.search-box {
   background: white;
   border-radius: 12rpx;
-  padding: 0 24rpx;
-  height: 88rpx;
+  padding: 20rpx 24rpx;
   display: flex;
   align-items: center;
   border: 1rpx solid #e2e8f0;
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
+  margin-bottom: 24rpx;
+  
+  .search-input {
+    flex: 1;
+    font-size: 28rpx;
+    color: #0f172a;
+    height: 40rpx;
+    border: none;
+    outline: none;
+    
+    &::placeholder {
+      color: #94a3b8;
+    }
+  }
+  
+  .search-btn {
+    margin-left: 16rpx;
+    background: #00BFCC;
+    color: white;
+    padding: 12rpx 24rpx;
+    border-radius: 8rpx;
+    font-size: 24rpx;
+    font-weight: 500;
+  }
 }
 
-.search-bar:focus-within {
-  border-color: #00BFCC;
-  box-shadow: 0 0 0 3rpx rgba(0, 191, 204, 0.1);
-}
-
-.search-icon {
-  margin-right: 16rpx;
-}
-
-.search-input {
-  flex: 1;
-  font-size: 26rpx;
-  color: #0f172a;
-  background: transparent;
-  border: none;
-}
-
-.filter-btn {
-  padding: 12rpx;
-  margin: -12rpx;
-}
-
-/* 科室标签 - 队友风格 */
-.department-tabs {
+.list-header {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24rpx 0 16rpx;
+  
+  .section-title {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  
+  .count-text {
+    font-size: 24rpx;
+    color: #64748b;
+  }
+}
+
+.hospital-list {
+  .hospital-card {
+    background: white;
+    border-radius: 12rpx;
+    padding: 24rpx;
+    margin-bottom: 20rpx;
+    border: 1rpx solid #e2e8f0;
+    
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16rpx;
+      
+      .hospital-name {
+        font-size: 28rpx;
+        font-weight: 600;
+        color: #0f172a;
+      }
+      
+      .level-tag {
+        padding: 6rpx 16rpx;
+        background: #00BFCC;
+        color: white;
+        border-radius: 6rpx;
+        font-size: 22rpx;
+      }
+    }
+    
+    .hospital-details {
+      display: flex;
+      flex-direction: column;
+      gap: 8rpx;
+      
+      .detail-item {
+        font-size: 24rpx;
+        color: #64748b;
+      }
+    }
+  }
+}
+
+.categories {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20rpx;
+  margin-bottom: 32rpx;
+}
+
+.category-card {
   background: white;
   border-radius: 12rpx;
-  padding: 16rpx;
+  padding: 36rpx 24rpx;
+  text-align: center;
+  border: 2rpx solid #e2e8f0;
+  
+  &.active {
+    border-color: #00BFCC;
+    background: #00BFCC;
+    .category-name { color: white; }
+  }
+  
+  .category-name {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #0f172a;
+  }
+}
+
+.department-list {
+  background: white;
+  border-radius: 12rpx;
+  overflow: hidden;
+  border: 1rpx solid #e2e8f0;
+  
+  .dept-card {
+    padding: 28rpx 24rpx;
+    border-bottom: 1rpx solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    .dept-info {
+      flex: 1;
+      .dept-name {
+        font-size: 28rpx;
+        color: #0f172a;
+        font-weight: 500;
+        display: block;
+        margin-bottom: 8rpx;
+      }
+      .dept-description {
+        font-size: 24rpx;
+        color: #64748b;
+        line-height: 1.4;
+      }
+    }
+    
+    .arrow-icon {
+      font-size: 36rpx;
+      color: #94a3b8;
+    }
+  }
+}
+
+.current-hospital {
+  background: white;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
   margin-bottom: 24rpx;
   border: 1rpx solid #e2e8f0;
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
-  gap: 8rpx;
+  
+  .hospital-name {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #0f172a;
+    display: block;
+    margin-bottom: 8rpx;
+  }
+  
+  .hospital-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    .hospital-level {
+      font-size: 24rpx;
+      color: #00BFCC;
+      background: #f0f9ff;
+      padding: 4rpx 12rpx;
+      border-radius: 6rpx;
+    }
+    
+    .intro-link {
+      font-size: 24rpx;
+      color: #00BFCC;
+    }
+  }
 }
 
-.tab-item {
-  flex: 1;
-  text-align: center;
-  padding: 16rpx 20rpx;
-  border-radius: 8rpx;
-  transition: all 0.2s ease;
+.path-nav {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  margin-bottom: 20rpx;
+  flex-wrap: wrap;
+  
+  .path-item {
+    font-size: 26rpx;
+    color: #00BFCC;
+    font-weight: 500;
+    padding: 4rpx 0;
+    &.current { color: #0f172a; }
+  }
+  
+  .separator {
+    margin: 0 12rpx;
+    color: #cbd5e1;
+  }
+  
+  .search-tag {
+    margin-left: 16rpx;
+    padding: 4rpx 12rpx;
+    background: #f0f9ff;
+    color: #00BFCC;
+    border-radius: 6rpx;
+    font-size: 22rpx;
+  }
 }
 
-.tab-item.active {
-  background: #00BFCC;
-  color: white;
+.dept-info-card, .global-search-info {
+  background: white;
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  border: 1rpx solid #e2e8f0;
+  
+  .dept-name, .search-keyword {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #0f172a;
+    display: block;
+    margin-bottom: 8rpx;
+  }
+  
+  .info-text, .search-result {
+    font-size: 24rpx;
+    color: #0f172a;
+    line-height: 1.4;
+  }
 }
 
-.tab-text {
-  font-size: 24rpx;
-  color: #64748b;
-  font-weight: 500;
+.filter-section {
+  background: white;
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  border: 1rpx solid #e2e8f0;
+  
+  .filter-group {
+    margin-bottom: 24rpx;
+    .filter-label {
+      font-size: 26rpx;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 16rpx;
+      display: block;
+    }
+  }
 }
 
-.tab-count {
-  font-size: 20rpx;
-  color: #94a3b8;
-  margin-left: 6rpx;
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  
+  .filter-tag {
+    padding: 16rpx 28rpx;
+    background: #f8fafc;
+    border: 1rpx solid #e2e8f0;
+    border-radius: 8rpx;
+    font-size: 26rpx;
+    color: #64748b;
+    font-weight: 500;
+    
+    &.active {
+      background: #00BFCC;
+      color: white;
+      border-color: #00BFCC;
+    }
+  }
 }
 
-.tab-item.active .tab-text,
-.tab-item.active .tab-count {
-  color: white;
-}
-
-/* 医生列表 - 队友风格 */
-.doctors-list {
-  margin-bottom: 32rpx;
+.filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f1f5f9;
+  
+  .filter-count {
+    font-size: 24rpx;
+    color: #64748b;
+  }
+  
+  .clear-btn {
+    background: #f8fafc;
+    border: 1rpx solid #e2e8f0;
+    border-radius: 8rpx;
+    padding: 12rpx 24rpx;
+    font-size: 24rpx;
+    color: #64748b;
+  }
 }
 
 .doctor-card {
   background: white;
   border-radius: 12rpx;
   padding: 24rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
   border: 1rpx solid #e2e8f0;
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
+  
+  .doctor-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20rpx;
+    
+    .avatar {
+      width: 80rpx;
+      height: 80rpx;
+      border-radius: 50%;
+      margin-right: 20rpx;
+      
+      &.placeholder {
+        background: #00BFCC;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 32rpx;
+        font-weight: 600;
+      }
+    }
+    
+    .doctor-info {
+      flex: 1;
+      
+      .name-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8rpx;
+        
+        .doctor-name {
+          font-size: 28rpx;
+          font-weight: 700;
+          color: #0f172a;
+          margin-right: 16rpx;
+        }
+        
+        .title-tag {
+          padding: 6rpx 16rpx;
+          background: #00BFCC;
+          color: white;
+          border-radius: 6rpx;
+          font-size: 22rpx;
+          font-weight: 500;
+        }
+      }
+      
+      .doctor-dept {
+        font-size: 24rpx;
+        color: #00BFCC;
+        font-weight: 500;
+        display: block;
+        margin-bottom: 4rpx;
+      }
+    }
+  }
+  
+  .doctor-specialty {
+    margin-bottom: 16rpx;
+    
+    .specialty-text {
+      font-size: 24rpx;
+      color: #374151;
+      line-height: 1.4;
+    }
+  }
+  
+  .doctor-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding-top: 16rpx;
+    border-top: 1rpx solid #f1f5f9;
+    
+    .view-detail {
+      padding: 12rpx 24rpx;
+      background: #00BFCC;
+      color: white;
+      border-radius: 8rpx;
+      font-size: 24rpx;
+      font-weight: 500;
+    }
+  }
 }
 
-.doctor-card:active {
-  background: #f8fafc;
-  transform: translateY(-1rpx);
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
-}
-
-.doctor-header {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 20rpx;
-}
-
-.doctor-avatar {
-  width: 80rpx;
-  height: 80rpx;
-  background: linear-gradient(135deg, #00BFCC 0%, #4DD0DB 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 20rpx;
-}
-
-.avatar-text {
-  color: white;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.doctor-basic {
-  flex: 1;
-}
-
-.doctor-name {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #0f172a;
-  display: block;
-  margin-bottom: 6rpx;
-}
-
-.doctor-title {
-  font-size: 22rpx;
-  color: #00BFCC;
-  display: block;
-  margin-bottom: 4rpx;
-}
-
-.doctor-dept {
-  font-size: 20rpx;
-  color: #64748b;
-}
-
-.doctor-level {
-  padding: 8rpx 16rpx;
+.empty-state, .selection-prompt {
+  text-align: center;
+  padding: 80rpx 40rpx;
+  background: white;
   border-radius: 12rpx;
-  font-size: 20rpx;
-  font-weight: 500;
+  border: 1rpx solid #e2e8f0;
+  margin-top: 24rpx;
+  
+  .empty-title, .prompt-title {
+    font-size: 28rpx;
+    color: #0f172a;
+    display: block;
+    margin-bottom: 16rpx;
+    font-weight: 600;
+  }
+  
+  .action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20rpx;
+    
+    .action-btn {
+      padding: 16rpx 32rpx;
+      background: #f8fafc;
+      border: 1rpx solid #e2e8f0;
+      border-radius: 8rpx;
+      font-size: 24rpx;
+      color: #64748b;
+      font-weight: 500;
+      
+      &.primary {
+        background: #00BFCC;
+        color: white;
+        border: none;
+      }
+    }
+  }
 }
 
-.doctor-level.expert {
-  background: #fef3c7;
-  color: #d97706;
-}
+.doctor-detail-container {
+  .doctor-basic {
+    background: white;
+    border-radius: 12rpx;
+    padding: 32rpx 24rpx;
+    margin-bottom: 24rpx;
+    border: 1rpx solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    
+    .avatar-section {
+      margin-right: 32rpx;
+      
+      .doctor-avatar {
+        width: 120rpx;
+        height: 120rpx;
+        border-radius: 50%;
+        
+        &.placeholder {
+          background: #00BFCC;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 48rpx;
+          font-weight: 600;
+        }
+      }
+    }
+    
+    .info-section {
+      flex: 1;
+      
+      .name-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12rpx;
+        
+        .doctor-name {
+          font-size: 32rpx;
+          font-weight: 700;
+          color: #0f172a;
+          margin-right: 16rpx;
+        }
+        
+        .title-badge {
+          padding: 6rpx 16rpx;
+          background: #00BFCC;
+          color: white;
+          border-radius: 6rpx;
+          font-size: 22rpx;
+          font-weight: 500;
+        }
+      }
+      
+      .hospital-info {
+        font-size: 24rpx;
+        color: #64748b;
+        display: block;
+      }
+    }
+  }
 
-.doctor-level.senior {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.doctor-level.regular {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.doctor-specialty {
-  display: flex;
-  margin-bottom: 20rpx;
-}
-
-.specialty-label {
-  font-size: 22rpx;
-  color: #64748b;
-  margin-right: 8rpx;
-  white-space: nowrap;
-}
-
-.specialty-content {
-  font-size: 22rpx;
-  color: #374151;
-  line-height: 1.4;
-}
-
-.doctor-stats {
-  display: flex;
-  justify-content: space-around;
-  padding: 16rpx 0;
-  border-top: 1rpx solid #f1f5f9;
-  border-bottom: 1rpx solid #f1f5f9;
-  margin-bottom: 16rpx;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 20rpx;
-  color: #94a3b8;
-  display: block;
-  margin-bottom: 6rpx;
-}
-
-.stat-value {
-  font-size: 24rpx;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.stat-value.price {
-  color: #dc2626;
-}
-
-.stat-value.low {
-  color: #f59e0b;
-}
-
-.doctor-intro {
-  display: flex;
-  margin-bottom: 20rpx;
-}
-
-.intro-label {
-  font-size: 22rpx;
-  color: #64748b;
-  margin-right: 8rpx;
-  white-space: nowrap;
-}
-
-.intro-content {
-  font-size: 22rpx;
-  color: #374151;
-  line-height: 1.4;
-}
-
-.doctor-actions {
-  text-align: right;
-}
-
-.appointment-btn {
-  background: linear-gradient(135deg, #00BFCC 0%, #4DD0DB 100%);
-  border: none;
-  border-radius: 20rpx;
-  padding: 16rpx 32rpx;
-  font-size: 24rpx;
-  font-weight: 500;
-  color: white;
-  box-shadow: 0 2rpx 8rpx rgba(0, 191, 204, 0.3);
-  transition: all 0.2s ease;
-}
-
-.appointment-btn:active {
-  transform: translateY(-1rpx);
-  box-shadow: 0 4rpx 12rpx rgba(0, 191, 204, 0.4);
-}
-
-.appointment-btn.disabled {
-  background: #e2e8f0;
-  color: #94a3b8;
-  box-shadow: none;
-  transform: none;
-}
-
-/* 空状态 */
-.empty-state {
-  text-align: center;
-  padding: 120rpx 40rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.empty-text {
-  font-size: 28rpx;
-  color: #94a3b8;
-  margin: 24rpx 0 12rpx;
-}
-
-.empty-desc {
-  font-size: 22rpx;
-  color: #cbd5e1;
+  .info-card {
+    background: white;
+    border-radius: 12rpx;
+    margin-bottom: 24rpx;
+    border: 1rpx solid #e2e8f0;
+    overflow: hidden;
+    
+    .info-header {
+      padding: 24rpx;
+      border-bottom: 1rpx solid #f1f5f9;
+      
+      .info-title {
+        font-size: 28rpx;
+        font-weight: 600;
+        color: #0f172a;
+      }
+    }
+    
+    .info-content {
+      padding: 24rpx;
+      
+      .info-item {
+        margin-bottom: 20rpx;
+        
+        .item-label {
+          font-size: 24rpx;
+          color: #64748b;
+          font-weight: 500;
+          display: block;
+          margin-bottom: 8rpx;
+        }
+        
+        .item-value {
+          font-size: 26rpx;
+          color: #0f172a;
+          line-height: 1.4;
+        }
+      }
+      
+      .intro-text {
+        font-size: 24rpx;
+        color: #374151;
+        line-height: 1.6;
+      }
+    }
+  }
 }
 </style>
