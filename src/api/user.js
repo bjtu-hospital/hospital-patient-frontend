@@ -31,10 +31,34 @@ export const getUserInfo = () => {
   return request.get('/auth/user-info').then(response => {
     // 后端返回 { patient: {...}, doctor: {...} }
     // 响应拦截器已经提取了 message 字段，所以 response = message
-    const patient = response.patient || {}
+    const patient = response.patient
     
     console.log('📱 getUserInfo 原始响应:', response)
     console.log('📱 患者信息:', patient)
+    
+    // 如果 patient 为 null，说明当前用户还没有创建患者信息
+    // 返回一个标识"未创建"状态的对象，而不是全是 undefined 的对象
+    if (!patient) {
+      console.log('📱 当前用户没有患者信息（可能是管理员或未完成身份认证）')
+      return {
+        id: null,
+        identifier: '',
+        idCard: null,
+        realName: null,
+        phonenumber: null,
+        gender: null,
+        birthDate: null,
+        age: null,
+        email: null,
+        avatar: null,
+        verified: false,                    // 未验证
+        patientType: null,
+        status: null,
+        riskScore: null,
+        maskedInfo: { phone: null, idCard: null },
+        _noPatientProfile: true             // 标识：没有患者档案
+      }
+    }
     
     // 映射字段名并返回
     return {
@@ -48,14 +72,15 @@ export const getUserInfo = () => {
       age: patient.age,
       email: patient.email,
       avatar: patient.avatar,
-      verified: patient.verified,                     // 是否已验证
+      verified: patient.verified ?? false,           // 是否已验证（默认false）
       patientType: patient.patientType || patient.patient_type,  // 患者类型
       status: patient.status,
       riskScore: patient.riskScore || patient.risk_score,
       maskedInfo: patient.maskedInfo || patient.masked_info || {
         phone: patient.phonenumber,
         idCard: patient.idCard || patient.id_card
-      }
+      },
+      _noPatientProfile: false
     }
   })
 }

@@ -154,12 +154,6 @@
 		}
 	},
 		{
-			"path": "pages/features/ai-assistant",
-			"style": {
-				"navigationBarTitleText": "AI就医助手"
-			}
-		},
-		{
 			"path": "pages/features/feedback",
 			"style": {
 				"navigationBarTitleText": "意见反馈"
