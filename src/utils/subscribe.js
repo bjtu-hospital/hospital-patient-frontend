@@ -151,28 +151,31 @@ export const requestSubscribeMessage = (templateIds) => {
  * @param {Object} params.businessData - 业务数据（可选），会一并提交到后端
  * @returns {Promise<Object>} 返回 { success: boolean, code: string, authResult: Object }
  */
-export const subscribeWithAuth = async ({ templateIds, businessData = {} }) => {
-  try {
-    console.log('🚀 开始订阅消息流程...')
-    
-    // 步骤1: 请求用户授权（必须在点击事件第一层同步调用）
-    console.log('📝 请求用户授权订阅消息...')
-    const authResult = await requestSubscribeMessage(templateIds)
-    
+export const subscribeWithAuth = ({ templateIds, businessData = {} }) => {
+  // ⚠️ 关键修改：移除 async，改为返回 Promise
+  // 这样 requestSubscribeMessage 会在同步代码中立即执行
+  
+  console.log('🚀 开始订阅消息流程...')
+  
+  // 🔑 关键：立即同步调用 requestSubscribeMessage（不使用 await）
+  console.log('📝 请求用户授权订阅消息...')
+  const authPromise = requestSubscribeMessage(templateIds)
+  
+  // 然后异步处理后续流程
+  return authPromise.then(authResult => {
     // 步骤2: 获取微信code（在授权回调中异步调用）
     console.log('🔑 获取微信登录code...')
-    const code = await getWxCode()
-    
-    // 返回code和授权结果，由调用方提交到后端
-    console.log('✅ 订阅消息流程完成')
-    return {
-      success: true,
-      code,
-      authResult,
-      businessData
-    }
-    
-  } catch (error) {
+    return getWxCode().then(code => {
+      // 返回code和授权结果，由调用方提交到后端
+      console.log('✅ 订阅消息流程完成')
+      return {
+        success: true,
+        code,
+        authResult,
+        businessData
+      }
+    })
+  }).catch(error => {
     console.error('❌ 订阅消息流程失败:', error)
     
     // 即使失败也返回基本信息，让业务流程继续
@@ -183,7 +186,7 @@ export const subscribeWithAuth = async ({ templateIds, businessData = {} }) => {
       businessData,
       error: error.message
     }
-  }
+  })
 }
 
 /**
