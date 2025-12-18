@@ -84,7 +84,6 @@ import { useAppointmentStore } from '@/stores/appointment'
 import { getPatients } from '@/api/user'
 import { createWaitlist } from '@/api/appointment'
 import { subscribeWithAuth, getTemplateIdsByScene } from '@/utils/subscribe'  // ✨ 导入订阅消息工具
-import { saveSubscribeAuth } from '@/api/message'  // ✨ 导入订阅消息API
 
 const appointmentStore = useAppointmentStore()
 
@@ -155,29 +154,14 @@ const confirmWaitlist = async () => {
     const result = await createWaitlist({
       scheduleId: schedule.value.id,
       patientId: selectedPatient.value.patientId,
-      // ⭐ 携带订阅消息相关信息
+      // ⭐ 携带订阅消息相关信息（后端会自动处理）
       wxCode: subscribeResult.code,
       subscribeAuthResult: subscribeResult.authResult,
       subscribeScene: 'waitlist'
     })
 
     console.log('✅ 候补创建成功，后端返回:', result)
-    
-    // ⭐ 步骤3: 如果订阅授权成功，保存授权信息
-    if (subscribeResult.success && subscribeResult.code) {
-      try {
-        await saveSubscribeAuth({
-          scene: 'waitlist',
-          authResult: subscribeResult.authResult,
-          businessData: {
-            waitlistId: result.id
-          }
-        })
-        console.log('✅ 订阅授权信息已保存')
-      } catch (authError) {
-        console.warn('⚠️ 订阅授权信息保存失败:', authError)
-      }
-    }
+    console.log('✅ 订阅消息已由后端自动处理（绑定openid + 发送消息）')
 
     uni.hideLoading()
 

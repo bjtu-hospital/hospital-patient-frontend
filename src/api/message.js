@@ -38,59 +38,48 @@ export const submitFeedback = (data) => {
 // ==================== 微信订阅消息接口 ====================
 
 /**
- * 提交微信登录code，换取并保存openid
+ * 使用 wx.login() 的 code 绑定当前用户的微信 openid
  * 
- * 后端需要做的事：
+ * 对应后端接口: POST /patient/wechat/bind-by-code
+ * 
+ * 后端会做：
  * 1. 使用 code + AppID + AppSecret 调用微信接口换取 openid
  * 2. 将 openid 与当前用户关联并保存到数据库
  * 3. 返回操作结果
  * 
- * @param {Object} data
- * @param {string} data.code - wx.login() 获取的临时code
- * @returns {Promise<Object>} 返回 { openid: string, detail: string }
+ * @param {string} code - wx.login() 获取的临时code
+ * @returns {Promise<Object>} 返回绑定结果
  */
-export const submitWxCode = (code) => {
-  return request.post('/patient/subscribe/bind-openid', { code })
+export const bindWechatByCode = (code) => {
+  return request.post('/patient/wechat/bind-by-code', { code })
 }
 
 /**
- * 保存订阅消息授权结果
+ * 查询当前用户是否已授权指定订阅消息模板
  * 
- * 后端需要做的事：
- * 1. 保存用户对各个模板的授权状态
- * 2. 记录授权时间、业务场景等信息
- * 3. 后续发送消息时检查授权状态
+ * 对应后端接口: GET /patient/wechat/authorized?templateId=xxx
  * 
- * @param {Object} data
- * @param {string} data.scene - 业务场景（appointment/waitlist/reschedule/cancel）
- * @param {Object} data.authResult - 授权结果对象 { [templateId]: 'accept'|'reject'|'ban' }
- * @param {Object} data.businessData - 业务数据（如预约ID、候补ID等）
- * @returns {Promise<Object>} 返回 { detail: string, acceptedTemplates: Array }
+ * @param {string} templateId - 模板ID
+ * @returns {Promise<Object>} 返回授权状态
  */
-export const saveSubscribeAuth = (data) => {
-  return request.post('/patient/subscribe/save-auth', data)
+export const checkWechatAuthorized = (templateId) => {
+  return request.get('/patient/wechat/authorized', { templateId })
 }
 
 /**
- * 【完整流程接口】提交订阅授权并创建业务记录
+ * 手动发送就诊提醒
  * 
- * 此接口将订阅消息授权和业务创建（如预约、候补）合并处理
+ * 对应后端接口: POST /patient/appointments/{appointmentId}/send-reminder
  * 
- * 流程：
- * 1. 前端在按钮点击时先请求订阅授权
- * 2. 获取 code 和授权结果
- * 3. 连同业务数据一起提交到此接口
- * 4. 后端保存 openid、授权信息，并创建业务记录
- * 5. 后端立即发送订阅消息通知用户
+ * 业务规则:
+ * - 只能对未来日期且距离就诊不超过1天的订单发送提醒
+ * - 只能对已支付已确认的订单发送
+ * - 防止重复发送
  * 
- * @param {Object} data
- * @param {string} data.code - wx.login() 的 code
- * @param {string} data.scene - 业务场景
- * @param {Object} data.authResult - 授权结果
- * @param {Object} data.businessData - 业务数据
- * @returns {Promise<Object>} 返回业务创建结果 + 消息发送结果
+ * @param {number} appointmentId - 预约ID
+ * @returns {Promise<string>} 返回发送结果消息
  */
-export const submitWithSubscribe = (data) => {
-  return request.post('/patient/subscribe/submit-with-auth', data)
+export const sendAppointmentReminder = (appointmentId) => {
+  return request.post(`/patient/appointments/${appointmentId}/send-reminder`)
 }
 

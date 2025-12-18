@@ -96,7 +96,7 @@ import { usePaymentStore } from '@/stores/payment'  // ✅ 导入支付Store
 import { getPatients } from '@/api/user'  // ✨ 导入 API
 import { createAppointment } from '@/api/appointment'  // ✨ 导入预约API
 import { subscribeWithAuth, getTemplateIdsByScene } from '@/utils/subscribe'  // ✨ 导入订阅消息工具
-import { submitWxCode, saveSubscribeAuth } from '@/api/message'  // ✨ 导入订阅消息API
+import { bindWechatByCode } from '@/api/message'  // ✨ 导入微信绑定API（新）
 
 const appointmentStore = useAppointmentStore()
 const paymentStore = usePaymentStore()  // ✅ 使用支付Store
@@ -230,8 +230,8 @@ const submitAppointment = async () => {
       departmentId: Number(appointmentStore.selectedDepartment?.id),
       patientId: Number(selectedPatient.value.patientId),
       symptoms: '',  // 可选的症状描述
-      // ⭐ 携带订阅消息相关信息
-      wxCode: subscribeResult.code,  // 微信code
+      // ⭐ 携带订阅消息相关信息（后端会自动处理）
+      wxCode: subscribeResult.code,  // 微信code，后端用于换取openid
       subscribeAuthResult: subscribeResult.authResult,  // 授权结果
       subscribeScene: 'appointment'  // 业务场景
     }
@@ -241,28 +241,7 @@ const submitAppointment = async () => {
     const result = await createAppointment(appointmentData)
     
     console.log('✅ 预约成功，后端返回:', result)
-    
-    // ⭐ 步骤3: 如果订阅授权成功且后端需要，保存授权信息
-    if (subscribeResult.success && subscribeResult.code) {
-      try {
-        // 方案A: 单独保存openid（如果后端在创建预约时没有处理）
-        // await submitWxCode(subscribeResult.code)
-        
-        // 方案B: 保存授权详情（用于后续消息发送的精细控制）
-        await saveSubscribeAuth({
-          scene: 'appointment',
-          authResult: subscribeResult.authResult,
-          businessData: {
-            appointmentId: result.id,
-            orderNo: result.orderNo
-          }
-        })
-        console.log('✅ 订阅授权信息已保存')
-      } catch (authError) {
-        // 授权信息保存失败不影响业务流程
-        console.warn('⚠️ 订阅授权信息保存失败:', authError)
-      }
-    }
+    console.log('✅ 订阅消息已由后端自动处理（绑定openid + 发送消息）')
     
     // 保存预约记录到本地(用于"我的预约"页面显示)
     const appointmentRecord = {

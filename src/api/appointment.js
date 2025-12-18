@@ -325,7 +325,19 @@ export const createAppointment = (data) => {
     hospitalId: data.hospitalId,      // 必填：医院ID（院区ID）
     departmentId: data.departmentId,  // 必填：科室ID
     patientId: data.patientId,        // 必填：患者ID（本人或就诊人的patientId）
-    symptoms: data.symptoms || ''     // 可选：症状描述
+    symptoms: data.symptoms || '',    // 可选：症状描述
+    
+    // ⭐ 订阅消息相关字段（可选，后端会自动处理）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    // 🔧 传递纯净的授权结果对象（移除errMsg字段）
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: (() => {
+        const result = { ...data.subscribeAuthResult }
+        delete result.errMsg  // 移除微信返回的errMsg字段
+        return result
+      })()
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
   }
   
   console.log('📤 创建预约请求参数:', apiData)
