@@ -59,6 +59,8 @@ export const getWxCode = () => {
 export const requestSubscribeMessage = (templateIds) => {
   return new Promise((resolve, reject) => {
     // #ifdef MP-WEIXIN
+    console.log('📝 准备请求订阅消息授权，模板IDs:', templateIds)
+    
     uni.requestSubscribeMessage({
       tmplIds: templateIds,
       success: (res) => {
@@ -75,12 +77,30 @@ export const requestSubscribeMessage = (templateIds) => {
         
         console.log('✅ 过滤后的授权结果:', authResult)
         
+        // 🔍 检查是否有任何授权结果
+        const hasAnyAuth = Object.keys(authResult).length > 0
+        if (!hasAnyAuth) {
+          console.warn('⚠️ 没有收到任何授权结果，可能原因：')
+          console.warn('   1. 所有模板都已授权过（微信会记住用户的选择）')
+          console.warn('   2. 模板已被用户永久拒绝')
+          console.warn('💡 如需重新授权，请：')
+          console.warn('   方法1: 在微信中长按小程序 > 删除 > 重新搜索进入')
+          console.warn('   方法2: 微信设置 > 小程序 > 找到本小程序 > 删除')
+        }
+        
         // 返回授权结果
         // 格式: { [templateId]: 'accept' | 'reject' | 'ban' }
         resolve(authResult)
       },
       fail: (err) => {
         console.error('❌ 订阅消息授权失败:', err)
+        console.error('   错误码:', err.errCode)
+        console.error('   错误信息:', err.errMsg)
+        
+        // 特殊错误处理
+        if (err.errMsg && err.errMsg.includes('not in user scope')) {
+          console.error('⛔ 该API必须在用户点击事件的第一层同步调用！')
+        }
         
         // 即使授权失败，也不应该阻断业务流程
         // 返回空对象，让业务继续
@@ -183,13 +203,10 @@ export const SUBSCRIBE_TEMPLATE_IDS = {
   // 字段：就诊人、就诊时间、体检地点、温馨提示
   APPOINTMENT_REMINDER: 'RFZQNIC-vGQC_mkDcqAneFF3OluydoAJXHEjh1pY64k',
   
-  // 候补成功通知 - 模板编号42275（候补结果通知）
-  // 字段：姓名、候补结果、活动地点、活动时间、温馨提示
-  // 注意：如果微信小程序后台未申请此模板，候补场景只使用候补转预约通知
-  WAITLIST_SUCCESS: 'Z9do65lx2ZWmooA-1rfUsatqUyMv99ESnk-spq7ikn4',
-  
-  // 候补转预约通知 - 模板编号461（预约通知）
+  // 候补转预约通知 - 复用预约成功模板（461号）
+  // 说明：候补转预约本质上就是预约成功，使用同一个模板
   // 字段：就诊人、就诊时间、预约地点、预约医师、预约状态
+  // 流程：用户加入候补时授权 → 后端自动转预约时发送消息
   WAITLIST_TO_APPOINTMENT: 'Z9do65Ix2ZWmooA-1rfUsatqUyMv99ESnk-spq7ikn4',
   
   // 改约成功通知 - 模板编号6410（预约修改通知）
@@ -215,9 +232,14 @@ export const getTemplateIdsByScene = (scene) => {
       SUBSCRIBE_TEMPLATE_IDS.APPOINTMENT_REMINDER
     ],
     
-    // 候补场景：需要候补成功通知 + 候补转预约通知
+    // 候补场景：用户加入候补时授权，后端自动转预约时发送消息
+    // 使用预约成功模板（因为候补转预约本质上就是预约成功）
     'waitlist': [
-      SUBSCRIBE_TEMPLATE_IDS.WAITLIST_SUCCESS,
+      SUBSCRIBE_TEMPLATE_IDS.WAITLIST_TO_APPOINTMENT
+    ],
+    
+    // 候补转预约场景（等同于候补场景）
+    'waitlist-to-appointment': [
       SUBSCRIBE_TEMPLATE_IDS.WAITLIST_TO_APPOINTMENT
     ],
     

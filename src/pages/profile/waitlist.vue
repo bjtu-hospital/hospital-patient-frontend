@@ -115,6 +115,8 @@
 import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getMyWaitlist, cancelWaitlist, convertWaitlistToAppointment } from '@/api/appointment'
+// 💡 候补转预约是后端自动触发的，不需要在这里请求订阅消息授权
+// 授权已在用户加入候补时完成（confirm-waitlist.vue）
 
 const waitlist = ref([])
 const loading = ref(false)
@@ -183,9 +185,11 @@ const handleCancel = (waitlistId) => {
   })
 }
 
-// 候补转预约
-const handleConvert = (item) => {
-  console.log('点击转为预约，候补信息:', item)
+// 候补转预约（手动触发 - 仅用于测试或特殊情况）
+// 💡 说明：正常流程是后端自动检测号源并触发转预约
+// 此功能仅供用户手动操作（如后端自动转换失败时的补救措施）
+const handleConvert = async (item) => {
+  console.log('手动触发候补转预约，候补信息:', item)
   
   uni.showModal({
     title: '转为预约',
@@ -195,15 +199,22 @@ const handleConvert = (item) => {
         try {
           uni.showLoading({ title: '转换中...' })
           
-          // 调用转预约接口
-          const appointment = await convertWaitlistToAppointment(item.id, 'online')
+          // 💡 直接调用转预约接口，不需要再次请求授权
+          // 因为用户在加入候补时已经完成了授权
+          const appointment = await convertWaitlistToAppointment(item.id, {
+            slotId: item.slotId || 'default_slot'
+            // 不需要传递订阅消息参数，后端会使用之前保存的授权记录
+          })
           
           uni.hideLoading()
-          console.log('转预约成功:', appointment)
+          console.log('✅ 转预约成功:', appointment)
+          
+          // 保存预约信息到本地，供支付页面使用
+          uni.setStorageSync('lastAppointment', appointment)
           
           // 跳转到支付页面
           uni.navigateTo({
-            url: `/pages/home/appointment/payment?appointmentId=${appointment.id}&price=${appointment.price}`
+            url: `/pages/home/appointment/payment`
           })
           
         } catch (error) {

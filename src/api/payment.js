@@ -182,7 +182,7 @@ export const verifyPayment = (data) => {
 /**
  * 支付预约订单
  * @param {Number} appointmentId - 预约订单ID
- * @param {Object} data - 支付信息 { method: 'alipay'|'wechat'|'bank', remark?: string }
+ * @param {Object} data - 支付信息 { method, remark, wxCode, subscribeAuthResult, subscribeScene }
  * @returns {Promise} 返回支付结果
  * Response: {
  *   success: true,
@@ -207,7 +207,19 @@ export const payAppointment = (appointmentId, data) => {
       paymentTime: new Date().toISOString().replace('T', ' ').slice(0, 19)
     })
   }
-  return request.post(`/patient/appointments/${appointmentId}/pay`, data)
+  
+  // 后端接口参数
+  const apiData = {
+    method: data.method,
+    remark: data.remark || ''
+    // 💡 说明：订阅消息授权在预约/候补转预约时已经完成
+    // 后端会在支付成功时，根据之前保存的授权记录发送消息
+    // 因此这里不需要再次传递订阅消息参数
+  }
+  
+  console.log('📤 支付预约请求参数:', apiData)
+  
+  return request.post(`/patient/appointments/${appointmentId}/pay`, apiData)
 }
 
 /**

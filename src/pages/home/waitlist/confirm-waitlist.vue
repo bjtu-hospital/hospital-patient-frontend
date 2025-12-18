@@ -125,9 +125,9 @@ const confirmWaitlist = async () => {
 
   try {
     // ⭐ 步骤1: 请求订阅消息授权（必须在按钮点击事件的第一层调用）
-    console.log('🔔 请求订阅消息授权...')
+    console.log('🔔 请求订阅消息授权（候补场景）...')
     const subscribeResult = await subscribeWithAuth({
-      templateIds: getTemplateIdsByScene('waitlist'),  // 候补场景需要的模板
+      templateIds: getTemplateIdsByScene('waitlist'),  // 候补转预约通知模板
       businessData: {
         patientId: selectedPatient.value.patientId,
         scheduleId: schedule.value.id
@@ -142,26 +142,19 @@ const confirmWaitlist = async () => {
     // 保存选中的就诊人到 Store
     appointmentStore.setSelectedPatient(selectedPatient.value)
 
-    console.log('提交候补数据:', {
-      scheduleId: schedule.value.id,
-      patientId: selectedPatient.value.patientId,
-      // ⭐ 携带订阅消息相关信息
-      wxCode: subscribeResult.code,
-      subscribeAuthResult: subscribeResult.authResult,
-      subscribeScene: 'waitlist'
-    })
-
     const result = await createWaitlist({
       scheduleId: schedule.value.id,
       patientId: selectedPatient.value.patientId,
-      // ⭐ 携带订阅消息相关信息（后端会自动处理）
+      // ⭐ 携带订阅消息相关信息（后端保存授权记录）
       wxCode: subscribeResult.code,
       subscribeAuthResult: subscribeResult.authResult,
       subscribeScene: 'waitlist'
+      // 💡 说明：后端不会立即发送消息，而是保存授权记录
+      // 当后端自动检测到号源并转预约成功时，才会发送"候补转预约通知"
     })
 
     console.log('✅ 候补创建成功，后端返回:', result)
-    console.log('✅ 订阅消息已由后端自动处理（绑定openid + 发送消息）')
+    console.log('📝 订阅消息授权已保存，等待后端自动转预约时触发推送')
 
     uni.hideLoading()
 

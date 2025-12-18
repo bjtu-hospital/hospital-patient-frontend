@@ -841,9 +841,14 @@ export const createWaitlist = (data) => {
     // 订阅消息相关参数（可选）
     ...(data.wxCode && { wxCode: data.wxCode }),
     ...(data.subscribeAuthResult && { 
-      subscribeAuthResult: typeof data.subscribeAuthResult === 'string' 
-        ? JSON.parse(data.subscribeAuthResult) 
-        : data.subscribeAuthResult
+      // 🔧 去除微信返回的 errMsg，确保后端保存纯净结果
+      subscribeAuthResult: (() => {
+        const parsed = typeof data.subscribeAuthResult === 'string'
+          ? JSON.parse(data.subscribeAuthResult)
+          : { ...data.subscribeAuthResult }
+        delete parsed.errMsg
+        return parsed
+      })()
     }),
     ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
   }
@@ -885,7 +890,7 @@ export const cancelWaitlist = (waitlistId) => {
 /**
  * 候补转预约
  * @param {String} waitlistId - 候补订单ID
- * @param {String} paymentMethod - 支付方式 'online' | 'offline'
+ * @param {Object} data - 转预约参数 { slotId, wxCode, subscribeAuthResult, subscribeScene }
  * @returns {Promise} 返回预约订单信息
  * Response: {
  *   id: 订单ID,
@@ -895,11 +900,12 @@ export const cancelWaitlist = (waitlistId) => {
  *   price: 价格,
  *   status: 'pending',
  *   paymentStatus: 'pending',
+ *   sourceType: 'waitlist',
  *   createdAt: 创建时间,
  *   expiresAt: 支付过期时间
  * }
  */
-export const convertWaitlistToAppointment = (waitlistId, paymentMethod = 'online') => {
+export const convertWaitlistToAppointment = (waitlistId, data = {}) => {
   if (USE_MOCK) {
     const waitlist = mockWaitlist.find(w => w.id === waitlistId)
     if (!waitlist) {
@@ -927,13 +933,28 @@ export const convertWaitlistToAppointment = (waitlistId, paymentMethod = 'online
       price: waitlist.price,
       status: 'pending',
       paymentStatus: 'pending',
+      sourceType: 'waitlist',
       createdAt: now.toISOString().replace('T', ' ').slice(0, 19),
       expiresAt: expiresAt.toISOString().replace('T', ' ').slice(0, 19)
     }
     
     return Promise.resolve(appointment)
   }
-  return request.post(`/patient/waitlist/${waitlistId}/convert`, {
-    paymentMethod: paymentMethod
-  })
+  
+  // 后端接口参数（包含订阅消息相关字段）
+  const apiData = {
+    slotId: data.slotId,
+    // 订阅消息相关参数（可选）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: typeof data.subscribeAuthResult === 'string' 
+        ? JSON.parse(data.subscribeAuthResult) 
+        : data.subscribeAuthResult
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
+  }
+  
+  console.log('📤 候补转预约请求参数:', apiData)
+  
+  return request.post(`/patient/waitlist/${waitlistId}/convert`, apiData)
 }

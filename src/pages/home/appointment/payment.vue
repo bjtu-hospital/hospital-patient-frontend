@@ -184,7 +184,7 @@ const selectPaymentMethod = (methodId) => {
   paymentStore.setPaymentMethod(methodId)
 }
 
-// 处理支付
+// 处理支付（集成订阅消息）
 const handlePayment = async () => {
   if (!appointmentData.value) {
     uni.showToast({
@@ -206,14 +206,20 @@ const handlePayment = async () => {
   paymentStore.clearPaymentError()
 
   try {
-    // 调用支付接口 POST /patient/appointments/{id}/pay
+    // 💡 说明：订阅消息授权已在预约确认页面完成，此处无需重复授权
+    // 微信会记住用户的授权选择，相同模板短时间内不会重复弹窗
+    
+    // 调用支付接口
     console.log('💳 调用支付接口:', appointmentData.value.id)
     const result = await payAppointment(appointmentData.value.id, {
       method: paymentStore.paymentMethod,
       remark: '在线支付'
+      // 注意：不需要再次传递订阅消息参数，因为预约时已经传递过了
+      // 后端会在支付成功时，根据之前保存的授权记录发送消息
     })
 
     console.log('✅ 支付成功:', result)
+    console.log('✅ 订阅消息已由后端自动处理（发送预约成功通知）')
     
     clearInterval(countdownTimer)
     
@@ -232,7 +238,7 @@ const handlePayment = async () => {
     // 显示成功提示
     uni.showModal({
       title: '支付成功',
-      content: '您的预约已完成，请按时就诊',
+      content: '您的预约已完成，请按时就诊。我们会通过微信消息提醒您就诊时间。',
       showCancel: false,
       confirmText: '查看预约',
       success: () => {
