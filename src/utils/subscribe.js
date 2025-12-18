@@ -158,27 +158,35 @@ export const subscribeWithAuth = async ({ templateIds, businessData = {} }) => {
 /**
  * 订阅消息模板ID配置
  * 
- * 🔧 使用前需要在微信小程序后台申请对应的模板
+ * 📋 已从微信小程序后台申请的模板（2025-12-17）
+ * 
  * 路径: 微信小程序后台 > 功能 > 订阅消息
  */
+
 export const SUBSCRIBE_TEMPLATE_IDS = {
-  // 预约成功通知
-  APPOINTMENT_SUCCESS: 'YOUR_TEMPLATE_ID_1',
+  // 预约成功通知 - 模板编号461（预约通知）
+  // 字段：就诊人、就诊时间、预约地点、预约医师、预约状态
+  APPOINTMENT_SUCCESS: 'RFZQNIC-vGQC_mkDcqAneBgEbozeik6zHMBrfiNfUgs',
   
-  // 就诊提醒通知
-  APPOINTMENT_REMINDER: 'YOUR_TEMPLATE_ID_2',
+  // 就诊提醒通知 - 模板编号461（预约通知）
+  // 字段：就诊人、就诊时间、体检地点、温馨提示
+  APPOINTMENT_REMINDER: 'RFZQNIC-vGQC_mkDcqAneFF3OluydoAJXHEjh1pY64k',
   
-  // 候补成功通知
-  WAITLIST_SUCCESS: 'YOUR_TEMPLATE_ID_3',
+  // 候补成功通知 - 模板编号42275（候补结果通知）
+  // 字段：姓名、候补结果、活动地点、活动时间、温馨提示
+  WAITLIST_SUCCESS: 'Z9do65lx2ZWmooA-1rfUsatqUyMv99ESnk-spq7ikn4',
   
-  // 候补转预约通知
-  WAITLIST_TO_APPOINTMENT: 'YOUR_TEMPLATE_ID_4',
+  // 候补转预约通知 - 模板编号461（预约通知）
+  // 字段：就诊人、就诊时间、预约地点、预约医师、预约状态
+  WAITLIST_TO_APPOINTMENT: 'RFZQNIC-vGQC_mkDcqAneHMamQUhmWIn82L2FwsiC5A',
   
-  // 改约成功通知
-  RESCHEDULE_SUCCESS: 'YOUR_TEMPLATE_ID_5',
+  // 改约成功通知 - 模板编号6410（预约修改通知）
+  // 字段：预约人、原预约时间、现预约时间、活动名称、修改原因
+  RESCHEDULE_SUCCESS: 'RLysg1picC6gOuopUswKqA_nKdDrTNIgKI7K8SBN5OQ',
   
-  // 取消预约通知
-  CANCEL_APPOINTMENT: 'YOUR_TEMPLATE_ID_6',
+  // 取消预约通知 - 模板编号461（预约通知）
+  // 字段：就诊人、就诊时间、预约医师、取消原因、订单状态
+  CANCEL_APPOINTMENT: 'RFZQNIC-vGQC_mkDcqAneBgEbozeik6zHMBrfiNfUgs',
 }
 
 /**
