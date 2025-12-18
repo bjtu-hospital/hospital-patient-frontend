@@ -17,6 +17,9 @@ export * from './message'
 // 反馈相关
 export * from './feedback'
 
+// 查询相关
+export * from './doctors'
+
 // 导出 request 实例
 export { default as request } from './request'
 
