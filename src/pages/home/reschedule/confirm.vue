@@ -79,6 +79,7 @@
 import { ref, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
 import { rescheduleAppointment } from '@/api/appointment'
+import { subscribeWithAuth, getTemplateIdsByScene } from '@/utils/subscribe'
 
 const appointmentStore = useAppointmentStore()
 const context = ref(null)
@@ -117,15 +118,31 @@ const ensureContext = () => {
 const submitReschedule = async () => {
   if (!context.value || !newSchedule.value || submitting.value) return
   submitting.value = true
-  uni.showLoading({
-    title: '提交中...',
-    mask: true
-  })
 
   try {
-    // 🔧 后端接口只需要 scheduleId
+    // ⭐ 请求订阅消息授权（确保可以发送改约通知）
+    console.log('🔔 请求改约订阅消息授权...')
+    const subscribeResult = await subscribeWithAuth({
+      templateIds: getTemplateIdsByScene('reschedule'),
+      businessData: {
+        appointmentId: context.value.appointmentId,
+        scheduleId: newSchedule.value.scheduleId || newSchedule.value.id
+      }
+    })
+    
+    console.log('📬 订阅授权结果:', subscribeResult)
+    
+    // 提交改约
+    uni.showLoading({
+      title: '提交中...',
+      mask: true
+    })
+
     const result = await rescheduleAppointment(context.value.appointmentId, {
-      scheduleId: newSchedule.value.scheduleId || newSchedule.value.id
+      scheduleId: newSchedule.value.scheduleId || newSchedule.value.id,
+      wxCode: subscribeResult.code,
+      subscribeAuthResult: subscribeResult.authResult,
+      subscribeScene: 'reschedule'
     })
     
     console.log('✅ 改约成功:', result)

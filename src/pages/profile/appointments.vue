@@ -72,6 +72,7 @@ import { ref, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getMyAppointments, getMyInitiatedAppointments, cancelAppointment as cancelAppointmentApi } from '@/api/appointment'
 import { useAppointmentStore } from '@/stores/appointment'
+import { subscribeWithAuth, getTemplateIdsByScene } from '@/utils/subscribe'
 
 const viewMode = ref('my') // 'my' | 'initiated'
 const selectedStatus = ref('all')
@@ -150,39 +151,84 @@ const viewDetails = (appointment) => {
   })
 }
 
-// 取消预约
+// 取消预约（先授权，再确认）
 const cancelAppointment = async (appointment) => {
-  // 弹出确认框
-  uni.showModal({
-    title: '取消预约',
-    content: '确定要取消这个预约吗？取消后可能需要重新预约。',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          uni.showLoading({ title: '取消中...' })
-          
-          // ✨ 调用 API 取消预约（自动判断 Mock/真实接口）
-          await cancelAppointmentApi(appointment.id)
-          
-          uni.hideLoading()
-          uni.showToast({
-            title: '预约已取消',
-            icon: 'success'
-          })
-          
-          // 刷新数据
-          loadAppointments()
-          
-        } catch (error) {
-          uni.hideLoading()
-          uni.showToast({
-            title: error.message || '取消失败',
-            icon: 'none'
-          })
+  try {
+    // ⭐ 步骤1: 先请求订阅消息授权
+    console.log('🔔 请求取消预约订阅消息授权...')
+    const subscribeResult = await subscribeWithAuth({
+      templateIds: getTemplateIdsByScene('cancel'),
+      businessData: { appointmentId: appointment.id }
+    })
+    
+    console.log('📬 订阅授权结果:', subscribeResult)
+    
+    // ⭐ 步骤2: 授权后弹出确认框
+    uni.showModal({
+      title: '取消预约',
+      content: '确定要取消这个预约吗？取消后可能需要重新预约。',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            uni.showLoading({ title: '取消中...' })
+            
+            // ⭐ 步骤3: 提交取消，携带授权信息
+            await cancelAppointmentApi(appointment.id, {
+              wxCode: subscribeResult.code,
+              subscribeAuthResult: subscribeResult.authResult,
+              subscribeScene: 'cancel'
+            })
+            
+            console.log('✅ 取消预约成功')
+            
+            uni.hideLoading()
+            uni.showToast({
+              title: '预约已取消',
+              icon: 'success'
+            })
+            
+            loadAppointments()
+            
+          } catch (error) {
+            uni.hideLoading()
+            uni.showToast({
+              title: error.message || '取消失败',
+              icon: 'none'
+            })
+          }
         }
       }
-    }
-  })
+    })
+  } catch (error) {
+    console.error('❌ 订阅消息授权失败:', error)
+    // 授权失败时，仍允许取消（但不会发送消息）
+    uni.showModal({
+      title: '取消预约',
+      content: '确定要取消这个预约吗？取消后可能需要重新预约。',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            uni.showLoading({ title: '取消中...' })
+            await cancelAppointmentApi(appointment.id)
+            
+            uni.hideLoading()
+            uni.showToast({
+              title: '预约已取消',
+              icon: 'success'
+            })
+            
+            loadAppointments()
+          } catch (error) {
+            uni.hideLoading()
+            uni.showToast({
+              title: error.message || '取消失败',
+              icon: 'none'
+            })
+          }
+        }
+      }
+    })
+  }
 }
 
 // 改约

@@ -556,9 +556,10 @@ export const getMyInitiatedAppointments = (params = {}) => {
 /**
  * 取消预约
  * @param {String} appointmentId - 预约ID
+ * @param {Object} data - 可选参数 { wxCode, subscribeAuthResult, subscribeScene }
  * @returns {Promise} 返回取消结果 { success, refundAmount }
  */
-export const cancelAppointment = (appointmentId) => {
+export const cancelAppointment = (appointmentId, data = {}) => {
   if (USE_MOCK) {
     // 在 Mock 数据中找到预约并更新状态
     const appointment = mockAppointments.find(a => a.id === appointmentId)
@@ -593,7 +594,22 @@ export const cancelAppointment = (appointmentId) => {
     }
     return Promise.resolve({ success: true, refundAmount: 0 })
   }
-  return request.put(`/patient/appointments/${appointmentId}/cancel`)
+  
+  // 后端接口参数（包含订阅消息相关字段）
+  const apiData = {
+    // 订阅消息相关参数（可选）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: typeof data.subscribeAuthResult === 'string' 
+        ? JSON.parse(data.subscribeAuthResult) 
+        : data.subscribeAuthResult
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
+  }
+  
+  console.log('📤 取消预约请求参数:', apiData)
+  
+  return request.put(`/patient/appointments/${appointmentId}/cancel`, apiData)
 }
 
 /**
@@ -740,10 +756,20 @@ export const rescheduleAppointment = (appointmentId, data) => {
     return Promise.resolve(updatedAppointment)
   }
   
-  // 🔧 后端接口只需要 scheduleId
+  // 后端接口参数（包含订阅消息相关字段）
   const apiData = {
-    scheduleId: data.scheduleId
+    scheduleId: data.scheduleId,
+    // 订阅消息相关参数（可选）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: typeof data.subscribeAuthResult === 'string' 
+        ? JSON.parse(data.subscribeAuthResult) 
+        : data.subscribeAuthResult
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
   }
+  
+  console.log('📤 改约请求参数:', apiData)
   
   return request.put(`/patient/appointments/${appointmentId}/reschedule`, apiData)
 }
@@ -807,7 +833,24 @@ export const createWaitlist = (data) => {
       position: newWaitlist.position
     })
   }
-  return request.post('/patient/waitlist', data)
+  
+  // 后端接口参数（包含订阅消息相关字段）
+  const apiData = {
+    scheduleId: data.scheduleId,
+    patientId: data.patientId,
+    // 订阅消息相关参数（可选）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: typeof data.subscribeAuthResult === 'string' 
+        ? JSON.parse(data.subscribeAuthResult) 
+        : data.subscribeAuthResult
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
+  }
+  
+  console.log('📤 创建候补请求参数:', apiData)
+  
+  return request.post('/patient/waitlist', apiData)
 }
 
 /**

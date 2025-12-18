@@ -62,11 +62,22 @@ export const requestSubscribeMessage = (templateIds) => {
     uni.requestSubscribeMessage({
       tmplIds: templateIds,
       success: (res) => {
-        console.log('✅ 订阅消息授权结果:', res)
+        console.log('✅ 订阅消息授权原始结果:', res)
+        
+        // 过滤掉 errMsg 等字段，只保留模板ID的授权结果
+        // res 格式: { errMsg: "...", "template_id_1": "accept", ... }
+        const authResult = {}
+        templateIds.forEach(templateId => {
+          if (res[templateId]) {
+            authResult[templateId] = res[templateId]
+          }
+        })
+        
+        console.log('✅ 过滤后的授权结果:', authResult)
         
         // 返回授权结果
         // 格式: { [templateId]: 'accept' | 'reject' | 'ban' }
-        resolve(res)
+        resolve(authResult)
       },
       fail: (err) => {
         console.error('❌ 订阅消息授权失败:', err)
@@ -174,7 +185,8 @@ export const SUBSCRIBE_TEMPLATE_IDS = {
   
   // 候补成功通知 - 模板编号42275（候补结果通知）
   // 字段：姓名、候补结果、活动地点、活动时间、温馨提示
-  //WAITLIST_SUCCESS: 'Z9do65lx2ZWmooA-1rfUsatqUyMv99ESnk-spq7ikn4',
+  // 注意：如果微信小程序后台未申请此模板，候补场景只使用候补转预约通知
+  WAITLIST_SUCCESS: 'Z9do65lx2ZWmooA-1rfUsatqUyMv99ESnk-spq7ikn4',
   
   // 候补转预约通知 - 模板编号461（预约通知）
   // 字段：就诊人、就诊时间、预约地点、预约医师、预约状态
