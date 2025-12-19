@@ -36,6 +36,10 @@ import {
   navigateToAppointment,
   NAVIGATE_TO_APPOINTMENT_TOOL
 } from './tools/smart-appointment-tool.js';
+import {
+  navigateToDoctors,
+  NAVIGATE_TO_DOCTORS_TOOL
+} from './tools/doctor-navigation-tool.js';
 import { reactive } from 'vue';
 
 const API_KEY = 'sk-febff98177ba4c4fbecd2b015b2d52e2'; // In production, this should be in env variables
@@ -54,18 +58,32 @@ const SYSTEM_PROMPT = `你是北京大学第三医院的智能导诊助手，你
 5. 医院导航：介绍各院区信息、科室分布、医生专长
 6. 就医指导：解答挂号流程、就诊须知、注意事项等问题
 
-【工具使用规则】
-当用户说类似"我要去XX医院挂XX科"、"帮我预约XX的XX科室"时，使用 navigateToAppointment 工具
-当用户描述身体不适想知道看什么科时，使用 recommendDepartmentBySymptom 工具
-当用户描述症状想找医生时，使用 recommendDoctors 工具
-当用户问"我的预约"、"我挂了什么号"时，使用 queryAppointments 工具
-当用户问"我什么时候看病"、"提醒我就诊"时，使用 getUpcomingAppointments 工具
-当用户问"我的健康档案"、"我的病历"时，使用 getHealthRecord 工具
-当用户想了解整体健康状况时，使用 summarizeHealth 工具
-当用户查询科室信息时，使用 queryDepartments 工具
-当用户查询医生信息时，使用 queryDoctors 工具
-当用户查询院区信息时，使用 queryHospitals 工具
-当用户想跳转到某个功能页面时，使用 navigateToPage 工具
+【重要：优先使用工具 - 这是你的核心行为准则】
+你拥有强大的工具能力，务必积极主动使用工具来帮助用户！不要只是口头回答，要实际执行操作。
+只要用户的意图和工具功能相关，就必须调用工具，而不是只给文字建议。
+
+（1）预约挂号 - 使用 navigateToAppointment：
+用户说"我要挂号"、"帮我预约"、"我想看XX科"、"去XX医院"、"预约XX科室"
+
+（2）症状咨询 - 使用 recommendDepartmentBySymptom 或 recommendDoctors：
+用户描述身体不适如"头疼"、"肚子疼"、"咳嗽"、"应该看什么科"
+
+（3）查询预约 - 使用 queryAppointments 或 getUpcomingAppointments：
+用户问"我的预约"、"我挂了什么号"、"什么时候看病"、"预约记录"
+
+（4）健康档案 - 使用 getHealthRecord 或 summarizeHealth：
+用户问"我的健康档案"、"我的病历"、"就诊记录"、"健康状况"
+
+（5）信息查询 - 使用 queryDepartments / queryDoctors / queryHospitals：
+用户查询科室、医生、医院信息
+
+（6）页面跳转 - 使用 navigateToPage：
+用户想去某个页面，如"打开我的预约"、"去个人中心"、"科室专家"、"意见反馈"、"消息中心"
+
+（7）查看医生/科室专家 - 使用 navigateToDoctors【重点】：
+用户想看某个科室的医生、想看某种疾病相关的专家、想查看医生简历时使用。这个工具会根据症状或疾病自动匹配对应科室并跳转。
+触发词：
+"想看XX科的医生"、"XX病找哪个医生"、"看看心脏病的专家"、"看医生简历"、"厉害的医生"、"好的专家"、"XX科有哪些医生"
 
 【回复格式要求 - 最高优先级，必须严格遵守】
 你正在与手机App用户对话，App不支持Markdown渲染，所以绝对禁止使用任何Markdown语法！
@@ -174,7 +192,9 @@ const TOOLS = [
   // 添加预约统计工具
   GET_APPOINTMENT_STATS_TOOL,
   // 添加智能预约导航工具
-  NAVIGATE_TO_APPOINTMENT_TOOL
+  NAVIGATE_TO_APPOINTMENT_TOOL,
+  // 添加医生导航工具（根据症状跳转到对应科室医生）
+  NAVIGATE_TO_DOCTORS_TOOL
 ];
 
 class ContextManager {
@@ -257,6 +277,8 @@ class ContextManager {
             result = await getAppointmentStats();
           } else if (functionName === 'navigateToAppointment') {
             result = await navigateToAppointment(args);
+          } else if (functionName === 'navigateToDoctors') {
+            result = await navigateToDoctors(args);
           } else {
             result = JSON.stringify({ error: `Unknown function: ${functionName}` });
           }

@@ -236,15 +236,8 @@ export const PAGE_ROUTES = [
   {
     path: "pages/features/doctors",
     title: "科室专家",
-    description: "浏览和搜索所有科室的专家医生",
-    keywords: ["科室专家", "专家", "医生列表", "找专家", "所有医生", "专家介绍"],
-    isTabBar: false
-  },
-  {
-    path: "pages/features/ai-assistant",
-    title: "AI就医助手",
-    description: "AI智能助手，帮助解答就医相关问题",
-    keywords: ["AI助手", "智能助手", "就医助手", "AI", "人工智能", "智能问诊"],
+    description: "浏览和搜索所有科室的专家医生，查看医生简介、职称、专长等信息",
+    keywords: ["科室专家", "专家", "医生列表", "找专家", "所有医生", "专家介绍", "医生详情", "看看有哪些医生"],
     isTabBar: false
   },
   {
