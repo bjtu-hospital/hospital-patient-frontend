@@ -51,7 +51,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getMyHealthRecord, getMyVisitRecords } from '@/api/health'
+import { getMyHealthRecord } from '@/api/health'
 import BasicInfo from './components/BasicInfo.vue'
 import MedicalHistory from './components/MedicalHistory.vue'
 import ConsultationRecords from './components/ConsultationRecords.vue'
@@ -63,17 +63,14 @@ const loadHealthData = async () => {
   try {
     loading.value = true
 
+    // 获取健康档案（已包含就诊记录列表）
     const healthRecord = await getMyHealthRecord()
 
-    let consultationRecords = healthRecord.consultationRecords || []
-    if (!consultationRecords.length) {
-      const visitRecords = await getMyVisitRecords({ page: 1, pageSize: 20 })
-      consultationRecords = visitRecords.list || []
-    }
-
+    // 直接使用后端返回的就诊记录，无需额外请求
+    // 后端的 /patient/health-record 接口已经包含 consultationRecords 字段
     healthData.value = {
       ...healthRecord,
-      consultationRecords
+      consultationRecords: healthRecord.consultationRecords || []
     }
 
     console.log('✅ 健康档案加载成功:', healthData.value)
