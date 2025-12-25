@@ -77,6 +77,8 @@ const fetchDoctors = async (params = {}) => {
   
   const res = await request.get('/patient/doctors', apiParams)
   
+  console.log('📥 医生接口原始响应:', res)
+  
   // 处理响应格式: { code: 0, message: { doctors: [...] } }
   let doctorsData = []
   if (res?.message?.doctors) {
@@ -87,7 +89,9 @@ const fetchDoctors = async (params = {}) => {
     doctorsData = res
   }
   
-  return doctorsData.map(d => ({
+  console.log('📋 解析后的医生数据:', doctorsData)
+  
+  const mappedDoctors = doctorsData.map(d => ({
     doctor_id: d.doctor_id,
     name: d.name || '未命名医生',
     title: d.title || '医师',
@@ -97,6 +101,10 @@ const fetchDoctors = async (params = {}) => {
     avatar: getAvatarUrl(d),
     price: d.default_price_normal || 50
   }))
+  
+  console.log('✅ 映射后的医生数据:', mappedDoctors)
+  
+  return mappedDoctors
 }
 
 /** 全局搜索 GET /patient/search/global */
@@ -450,8 +458,19 @@ export const useDoctorsStore = () => {
     
     loading.value = true
     try {
-      departments.value = await fetchDepartments()
+      // 并行加载大科室和小科室数据
+      const [categoriesData, departmentsData] = await Promise.all([
+        fetchDepartmentCategories(),
+        fetchDepartments()
+      ])
+      departmentCategories.value = categoriesData
+      departments.value = departmentsData
+      console.log('✅ 科室数据加载完成:', { 
+        categoriesCount: categoriesData.length, 
+        departmentsCount: departmentsData.length 
+      })
     } catch (e) {
+      console.error('❌ 加载科室失败:', e)
       uni.showToast({ title: '加载科室失败', icon: 'none' })
     } finally {
       loading.value = false
@@ -502,9 +521,19 @@ export const useDoctorsStore = () => {
     }
   }
 
-  const selectCategory = async (categoryId) => {
+  const selectCategory = (categoryId) => {
+    console.log('🏥 选择大科室:', categoryId)
     selectedCategory.value = categoryId
     deptKeyword.value = ''
+    
+    // 🎯 优化：不再发起请求，只做前端过滤
+    // categoryDepartments 计算属性会自动根据 selectedCategory 过滤数据
+    const filtered = departments.value.filter(d => d.major_dept_id === categoryId)
+    console.log('✅ 前端过滤大科室小科室:', {
+      categoryId,
+      count: filtered.length,
+      totalDepartments: departments.value.length
+    })
   }
 
   const selectDepartment = async (dept) => {
@@ -513,10 +542,15 @@ export const useDoctorsStore = () => {
     isGlobalSearch.value = false
     resetState()
     
+    console.log('🏥 选择科室:', dept)
+    
     uni.showLoading({ title: '加载医生...' })
     try {
-      doctors.value = await fetchDoctors({ dept_id: dept.minor_dept_id })
+      const doctorsData = await fetchDoctors({ dept_id: dept.minor_dept_id })
+      doctors.value = doctorsData
+      console.log('✅ 医生数据已设置:', doctors.value)
     } catch (e) {
+      console.error('❌ 加载医生失败:', e)
       uni.showToast({ title: '加载医生失败', icon: 'none' })
     } finally {
       uni.hideLoading()
