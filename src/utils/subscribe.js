@@ -138,7 +138,7 @@ export const SUBSCRIBE_TEMPLATE_IDS = {
   RESCHEDULE_SUCCESS: 'RLysg1picC6gOuopUswKqA_nKdDrTNlgKI7K8SBN5OQ',
 }
 
-/**
+/**w
  * 获取所有订阅消息模板ID
  * @returns {Array<string>} 所有模板ID数组
  */

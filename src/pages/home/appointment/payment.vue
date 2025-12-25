@@ -125,6 +125,7 @@ import { STATIC_URL } from '@/config'
 import { usePaymentStore } from '@/stores/payment'
 import { useAppointmentStore } from '@/stores/appointment'
 import { getPaymentMethods, payAppointment } from '@/api/payment'
+import { subscribeWithAuth, SUBSCRIBE_TEMPLATE_IDS } from '@/utils/subscribe'
 
 const paymentStore = usePaymentStore()
 const appointmentStore = useAppointmentStore()
@@ -206,16 +207,25 @@ const handlePayment = async () => {
   paymentStore.clearPaymentError()
 
   try {
-    // 💡 说明：订阅消息授权已在预约确认页面完成，此处无需重复授权
-    // 微信会记住用户的授权选择，相同模板短时间内不会重复弹窗
-    
+    // 按需补充预约成功通知的授权，避免未授权导致推送失败
+    let wxCode = null
+    let subscribeAuthResult = null
+    try {
+      const auth = await subscribeWithAuth([SUBSCRIBE_TEMPLATE_IDS.APPOINTMENT_SUCCESS])
+      wxCode = auth.code
+      subscribeAuthResult = auth.authResult
+    } catch (authErr) {
+      console.warn('预约成功通知授权失败，继续支付流程', authErr)
+    }
+
     // 调用支付接口
     console.log('💳 调用支付接口:', appointmentData.value.id)
     const result = await payAppointment(appointmentData.value.id, {
       method: paymentStore.paymentMethod,
-      remark: '在线支付'
-      // 注意：不需要再次传递订阅消息参数，因为预约时已经传递过了
-      // 后端会在支付成功时，根据之前保存的授权记录发送消息
+      remark: '在线支付',
+      ...(wxCode && { wxCode }),
+      ...(subscribeAuthResult && { subscribeAuthResult }),
+      subscribeScene: 'appointment_paid'
     })
 
     console.log('✅ 支付成功:', result)
