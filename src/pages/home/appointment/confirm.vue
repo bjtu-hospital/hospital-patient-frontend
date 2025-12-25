@@ -95,8 +95,7 @@ import { useAppointmentStore } from '@/stores/appointment'
 import { usePaymentStore } from '@/stores/payment'  // ✅ 导入支付Store
 import { getPatients } from '@/api/user'  // ✨ 导入 API
 import { createAppointment } from '@/api/appointment'  // ✨ 导入预约API
-import { subscribeWithAuth, getTemplateIdsByScene } from '@/utils/subscribe'  // ✨ 导入订阅消息工具
-import { bindWechatByCode } from '@/api/message'  // ✨ 导入微信绑定API（新）
+// ✅ 订阅消息授权已统一在首页完成，业务页面不再弹窗
 
 const appointmentStore = useAppointmentStore()
 const paymentStore = usePaymentStore()  // ✅ 使用支付Store
@@ -188,7 +187,8 @@ const changeTime = () => {
   })
 }
 
-// 提交预约（集成订阅消息）
+// 提交预约
+// ✅ 订阅消息授权已统一在首页完成，这里不再弹窗
 const submitAppointment = async () => {
   if (!selectedPatient.value) {
     uni.showToast({
@@ -204,19 +204,6 @@ const submitAppointment = async () => {
   submitting.value = true
 
   try {
-    // ⭐ 步骤1: 请求订阅消息授权（必须在按钮点击事件的第一层调用）
-    console.log('🔔 请求订阅消息授权...')
-    const subscribeResult = await subscribeWithAuth({
-      templateIds: getTemplateIdsByScene('appointment'),  // 预约场景需要的模板
-      businessData: {
-        patientId: selectedPatient.value.patientId,
-        scheduleId: appointmentStore.selectedSchedule?.id
-      }
-    })
-    
-    console.log('📬 订阅授权结果:', subscribeResult)
-    
-    // ⭐ 步骤2: 提交预约（在授权回调中异步执行）
     uni.showLoading({
       title: '预约中...',
       mask: true
@@ -224,16 +211,13 @@ const submitAppointment = async () => {
     
     const schedule = appointmentStore.selectedSchedule
     
+    // ✅ 简化：不再传递 wxCode/subscribeAuthResult，后端使用已保存的绑定信息
     const appointmentData = {
       scheduleId: Number(schedule?.id),
       hospitalId: Number(appointmentStore.selectedHospital?.id),
       departmentId: Number(appointmentStore.selectedDepartment?.id),
       patientId: Number(selectedPatient.value.patientId),
-      symptoms: '',  // 可选的症状描述
-      // ⭐ 携带订阅消息相关信息（后端会自动处理）
-      wxCode: subscribeResult.code,  // 微信code，后端用于换取openid
-      subscribeAuthResult: subscribeResult.authResult,  // 授权结果
-      subscribeScene: 'appointment'  // 业务场景
+      symptoms: ''  // 可选的症状描述
     }
     
     console.log('📤 提交预约数据:', appointmentData)
@@ -241,7 +225,6 @@ const submitAppointment = async () => {
     const result = await createAppointment(appointmentData)
     
     console.log('✅ 预约成功，后端返回:', result)
-    console.log('✅ 订阅消息已由后端自动处理（绑定openid + 发送消息）')
     
     // 保存预约记录到本地(用于"我的预约"页面显示)
     const appointmentRecord = {

@@ -55,6 +55,37 @@ export const bindWechatByCode = (code) => {
 }
 
 /**
+ * 统一提交微信订阅授权（推荐在首页一次性授权所有模板）
+ * 
+ * 对应后端接口: POST /patient/wechat/subscribe-auth
+ * 
+ * 后端处理逻辑：
+ * 1. 用 wxCode 换取 openid 并绑定到当前用户
+ * 2. 保存用户的订阅授权记录
+ * 3. 返回绑定和授权状态
+ * 
+ * @param {Object} data - 授权数据
+ * @param {string} data.wxCode - wx.login() 获取的临时code
+ * @param {Object} data.subscribeAuthResult - 授权结果 { templateId: 'accept'|'reject'|'ban' }
+ * @param {string} data.subscribeScene - 业务场景标识，如 'general'
+ * @returns {Promise<Object>} 返回 { success, bound, openid, authorizedTemplates }
+ */
+export const submitSubscribeAuth = (data) => {
+  return request.post('/patient/wechat/subscribe-auth', data)
+}
+
+/**
+ * 查询当前用户的微信绑定和授权状态
+ * 
+ * 对应后端接口: GET /patient/wechat/bindinfo
+ * 
+ * @returns {Promise<Object>} 返回 { bound, maskedOpenid, authorizedTemplates }
+ */
+export const getWechatBindInfo = () => {
+  return request.get('/patient/wechat/bindinfo')
+}
+
+/**
  * 查询当前用户是否已授权指定订阅消息模板
  * 
  * 对应后端接口: GET /patient/wechat/authorized?templateId=xxx
