@@ -91,7 +91,7 @@
             class="category-item" 
             v-for="c in departmentCategories" 
             :key="c.major_dept_id"
-            :class="{ active: selectedCategory === c.major_dept_id }"
+            :class="{ active: selectedCategory == c.major_dept_id }"
             @tap="selectCategory(c.major_dept_id)"
           >
             {{ c.name }}
@@ -226,8 +226,8 @@
 </template>
 
 <script setup>
-import { onLoad } from '@dcloudio/uni-app'
-import { useDoctorsStore } from '@/api/doctors.js'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { useDoctorsStore, resetDoctorsStore } from '@/api/doctors.js'
 
 const store = useDoctorsStore()
 
@@ -244,6 +244,8 @@ const {
 } = store
 
 onLoad((options) => {
+  console.log('📄 doctors.vue onLoad')
+  
   // 检查是否有URL参数，如果有则使用参数导航
   if (options.hospital || options.department || options.keyword || options.level) {
     initWithParams({
@@ -255,6 +257,12 @@ onLoad((options) => {
   } else {
     init()
   }
+})
+
+// 🔧 修复：页面卸载时完全重置 store 实例，确保下次进入时使用全新的响应式状态
+onUnload(() => {
+  console.log('📄 doctors.vue onUnload - 完全重置 store')
+  resetDoctorsStore()
 })
 </script>
 

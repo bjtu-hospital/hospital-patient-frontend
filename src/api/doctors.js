@@ -213,8 +213,15 @@ export const useDoctorsStore = () => {
   })
 
   const categoryDepartments = computed(() => {
-    if (!selectedCategory.value) return []
-    return departments.value.filter(d => d.major_dept_id === selectedCategory.value)
+    console.log('🔄 categoryDepartments 计算属性被触发, selectedCategory:', selectedCategory.value, '类型:', typeof selectedCategory.value)
+    if (!selectedCategory.value) {
+      console.log('❌ selectedCategory 为空，返回空数组')
+      return []
+    }
+    // 🔧 修复：使用松散相等性检查，避免类型不匹配问题（数字 vs 字符串）
+    const filtered = departments.value.filter(d => d.major_dept_id == selectedCategory.value)
+    console.log('✅ categoryDepartments 过滤结果:', filtered.length, '个科室:', filtered.map(d => d.name))
+    return filtered
   })
 
   const hasActiveFilters = computed(() => 
@@ -247,7 +254,28 @@ export const useDoctorsStore = () => {
 
   // 方法
   const init = async () => {
-    if (hospitals.value.length > 0) return // 已初始化
+    // 🔧 修复：每次进入都重置页面状态（但保留已缓存的数据）
+    console.log('🔄 初始化科室专家页面')
+    step.value = 'hospital'
+    searchKeyword.value = ''
+    deptKeyword.value = ''
+    hospitalKeyword.value = ''
+    filterTitle.value = 'all'
+    selectedCategory.value = null
+    selectedHospital.value = null
+    selectedDepartment.value = null
+    isGlobalSearch.value = false
+    globalSearchKeyword.value = ''
+    selectedDoctor.value = null
+    showDoctorDetail.value = false
+    doctors.value = []
+    departments.value = []
+    
+    // 如果已经加载过医院和大科室数据，直接返回
+    if (hospitals.value.length > 0 && departmentCategories.value.length > 0) {
+      console.log('✅ 使用缓存的医院和大科室数据')
+      return
+    }
     
     loading.value = true
     try {
@@ -258,7 +286,9 @@ export const useDoctorsStore = () => {
       ])
       hospitals.value = hospitalsData
       departmentCategories.value = categoriesData
+      console.log('✅ 医院和大科室数据加载完成')
     } catch (e) {
+      console.error('❌ 加载失败:', e)
       uni.showToast({ title: '加载失败', icon: 'none' })
     } finally {
       loading.value = false
@@ -411,13 +441,17 @@ export const useDoctorsStore = () => {
       selectedCategory.value = null
       departments.value = []
       deptKeyword.value = ''
+      console.log('🔙 从科室页返回医院页')
     } else if (step.value === 'doctors') {
       if (isGlobalSearch.value) {
         step.value = 'hospital'
         isGlobalSearch.value = false
         doctors.value = []
+        console.log('🔙 从全局搜索返回医院页')
       } else {
         step.value = 'department'
+        selectedCategory.value = null  // 🔧 重置大科室选择
+        console.log('🔙 从医生列表返回科室页')
         selectedDepartment.value = null
       }
       resetState()
@@ -465,10 +499,34 @@ export const useDoctorsStore = () => {
       ])
       departmentCategories.value = categoriesData
       departments.value = departmentsData
+      
       console.log('✅ 科室数据加载完成:', { 
         categoriesCount: categoriesData.length, 
         departmentsCount: departmentsData.length 
       })
+      
+      // 🔍 验证数据结构
+      console.log('🔍 大科室列表:', categoriesData.map(c => ({
+        id: c.major_dept_id,
+        name: c.name
+      })))
+      
+      console.log('🔍 小科室样例 (前3个):', departmentsData.slice(0, 3).map(d => ({
+        name: d.name,
+        minor_dept_id: d.minor_dept_id,
+        major_dept_id: d.major_dept_id
+      })))
+      
+      // 📊 统计每个大科室下的小科室数量
+      const statsMap = {}
+      departmentsData.forEach(d => {
+        if (!statsMap[d.major_dept_id]) {
+          statsMap[d.major_dept_id] = { count: 0, names: [] }
+        }
+        statsMap[d.major_dept_id].count++
+        statsMap[d.major_dept_id].names.push(d.name)
+      })
+      console.log('📊 各大科室的小科室数量:', statsMap)
     } catch (e) {
       console.error('❌ 加载科室失败:', e)
       uni.showToast({ title: '加载科室失败', icon: 'none' })
@@ -522,18 +580,36 @@ export const useDoctorsStore = () => {
   }
 
   const selectCategory = (categoryId) => {
-    console.log('🏥 选择大科室:', categoryId)
-    selectedCategory.value = categoryId
+    console.log('🏥 选择大科室:', categoryId, '类型:', typeof categoryId)
+    console.log('📋 当前 selectedCategory 值:', selectedCategory.value, '类型:', typeof selectedCategory.value)
+    console.log('📋 当前所有小科室数据 (前5个):', departments.value.slice(0, 5).map(d => ({
+      name: d.name,
+      minor_dept_id: d.minor_dept_id,
+      major_dept_id: d.major_dept_id,
+      major_dept_id_type: typeof d.major_dept_id
+    })))
+    
+    // 🔧 修复：先清空搜索关键词和选中的分类，确保状态干净
     deptKeyword.value = ''
+    selectedCategory.value = categoryId
     
     // 🎯 优化：不再发起请求，只做前端过滤
     // categoryDepartments 计算属性会自动根据 selectedCategory 过滤数据
-    const filtered = departments.value.filter(d => d.major_dept_id === categoryId)
+    // 🔧 修复：使用松散相等性检查，避免类型不匹配问题（数字 vs 字符串）
+    const filtered = departments.value.filter(d => d.major_dept_id == categoryId)
     console.log('✅ 前端过滤大科室小科室:', {
       categoryId,
+      categoryIdType: typeof categoryId,
       count: filtered.length,
-      totalDepartments: departments.value.length
+      totalDepartments: departments.value.length,
+      filtered: filtered.map(d => d.name),
+      currentSelectedCategory: selectedCategory.value
     })
+    
+    if (filtered.length === 0) {
+      console.warn('⚠️ 警告：过滤结果为空！请检查 major_dept_id 是否匹配')
+      console.warn('⚠️ 所有 major_dept_id 值:', [...new Set(departments.value.map(d => d.major_dept_id))])
+    }
   }
 
   const selectDepartment = async (dept) => {
