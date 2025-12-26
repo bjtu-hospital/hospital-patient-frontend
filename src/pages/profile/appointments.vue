@@ -284,7 +284,8 @@ const goToPayment = (appointment) => {
 
 // 返回首页
 const goToHome = () => {
-  uni.switchTab({
+  // 使用 reLaunch 代替 switchTab，避免从非 tabBar 页面跳转时先闪现到 profile/index
+  uni.reLaunch({
     url: '/pages/home/index'
   })
 }
