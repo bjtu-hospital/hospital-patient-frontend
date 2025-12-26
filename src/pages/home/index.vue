@@ -1,5 +1,51 @@
 <template>
   <view class="home-container">
+    <!-- 微信风格订阅消息授权弹窗（底部弹出） -->
+    <view class="wx-auth-mask" v-if="showAuthGuide" @tap="handleAuthCancel">
+      <view class="wx-auth-panel" @tap.stop>
+        <!-- 顶部：小程序信息 -->
+        <view class="wx-auth-header">
+          <image class="wx-app-icon" src="/static/tabbar/home-activate.png" mode="aspectFill"></image>
+          <text class="wx-app-name">校医院挂号 申请</text>
+        </view>
+        
+        <!-- 提示文字 -->
+        <view class="wx-auth-hint">
+          <text>发送一次以下消息</text>
+        </view>
+        
+        <!-- 消息模板列表 -->
+        <view class="wx-template-list">
+          <view class="wx-template-item">
+            <text class="wx-template-name">预约通知</text>
+            <switch class="wx-switch" :checked="templateChecked.appointment" @change="(e) => templateChecked.appointment = e.detail.value" color="#07c160"/>
+          </view>
+          <view class="wx-template-item">
+            <text class="wx-template-name">取消预约通知</text>
+            <switch class="wx-switch" :checked="templateChecked.cancel" @change="(e) => templateChecked.cancel = e.detail.value" color="#07c160"/>
+          </view>
+          <view class="wx-template-item">
+            <text class="wx-template-name">预约修改通知</text>
+            <switch class="wx-switch" :checked="templateChecked.reschedule" @change="(e) => templateChecked.reschedule = e.detail.value" color="#07c160"/>
+          </view>
+        </view>
+        
+        <!-- 总是保持选择 -->
+        <view class="wx-always-keep" @tap="toggleAlwaysKeep">
+          <view class="wx-checkbox" :class="{ 'checked': alwaysKeep }">
+            <uni-icons v-if="alwaysKeep" type="checkmarkempty" size="12" color="#07c160"></uni-icons>
+          </view>
+          <text class="wx-keep-text">总是保持以上选择</text>
+        </view>
+        
+        <!-- 底部按钮 -->
+        <view class="wx-auth-buttons">
+          <button class="wx-btn wx-btn-cancel" @tap="handleAuthCancel">拒绝</button>
+          <button class="wx-btn wx-btn-confirm" :class="{ 'disabled': !hasAnyChecked }" @tap="handleAuthConfirm">允许</button>
+        </view>
+      </view>
+    </view>
+
     <!-- 顶部轮播图 -->
     <view class="banner-swiper-container">
       <swiper 
@@ -142,9 +188,33 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { STATIC_URL } from '@/config'
 import { useUserStore } from '@/stores/user'
+import { homeSubscribeAuth } from '@/utils/subscribe'
+import { getWechatBindInfo, submitSubscribeAuth } from '@/api/message'
 
 // 使用 Pinia Store
 const userStore = useUserStore()
+
+// 是否已检查过授权（防止重复弹窗）
+const hasCheckedAuth = ref(false)
+// 是否显示授权引导弹窗
+const showAuthGuide = ref(false)
+
+// 微信风格弹窗的模板开关状态
+const templateChecked = ref({
+  appointment: true,  // 预约通知
+  cancel: true,       // 取消预约通知
+  reschedule: true    // 预约修改通知
+})
+// 是否总是保持选择
+const alwaysKeep = ref(true)
+// 是否有任何模板被选中
+const hasAnyChecked = computed(() => {
+  return templateChecked.value.appointment || templateChecked.value.cancel || templateChecked.value.reschedule
+})
+// 切换"总是保持选择"
+const toggleAlwaysKeep = () => {
+  alwaysKeep.value = !alwaysKeep.value
+}
 
 // 轮播图数据
 const bannerList = ref([
@@ -281,6 +351,110 @@ onMounted(() => {
   })
 })
 
+/**
+ * 检查并引导用户授权微信订阅消息
+ * 只在用户已登录且未绑定时弹窗引导
+ */
+const checkAndPromptAuth = async () => {
+  // 已经检查过了，不重复弹窗
+  if (hasCheckedAuth.value) {
+    return
+  }
+  
+  // 未登录不需要检查
+  if (!isLoggedIn.value) {
+    return
+  }
+  
+  try {
+    console.log('🔍 检查微信绑定状态...')
+    const bindInfo = await getWechatBindInfo()
+    console.log('📋 绑定状态:', bindInfo)
+    
+    // 标记已检查
+    hasCheckedAuth.value = true
+    
+    // 如果已绑定且有授权记录，不弹窗
+    if (bindInfo?.bound && bindInfo?.authorizedTemplates?.length > 0) {
+      console.log('✅ 用户已绑定且已授权，无需弹窗')
+      return
+    }
+    
+    // 未绑定或未授权，显示引导弹窗
+    console.log('📢 用户未绑定或未授权，显示引导弹窗')
+    showAuthGuide.value = true
+    
+  } catch (err) {
+    console.warn('⚠️ 检查绑定状态失败:', err)
+    // 检查失败时也标记已检查，避免重复请求
+    hasCheckedAuth.value = true
+  }
+}
+
+/**
+ * 用户点击授权按钮时执行
+ * ⚠️ 必须在按钮点击事件中调用（微信API限制）
+ */
+const handleAuthConfirm = async () => {
+  // 检查是否有任何模板被选中
+  if (!hasAnyChecked.value) {
+    uni.showToast({
+      title: '请至少选择一项通知',
+      icon: 'none'
+    })
+    return
+  }
+  
+  showAuthGuide.value = false
+  
+  try {
+    console.log('🚀 开始微信订阅消息授权...')
+    console.log('📋 用户选择的模板:', templateChecked.value)
+    
+    // 调用授权流程，传入用户的选择
+    const result = await homeSubscribeAuth(templateChecked.value)
+    
+    if (result.success && result.code) {
+      console.log('📤 提交授权结果到后端...')
+      
+      // 提交到后端
+      await submitSubscribeAuth({
+        wxCode: result.code,
+        subscribeAuthResult: result.authResult,
+        subscribeScene: 'general'
+      })
+      
+      console.log('✅ 微信订阅消息授权成功')
+      uni.showToast({
+        title: '通知已开启',
+        icon: 'success'
+      })
+    } else {
+      console.warn('⚠️ 授权流程未完成:', result)
+      if (result.error) {
+        uni.showToast({
+          title: result.error,
+          icon: 'none'
+        })
+      }
+    }
+  } catch (err) {
+    console.error('❌ 授权失败:', err)
+    uni.showToast({
+      title: '授权失败，请稍后重试',
+      icon: 'none'
+    })
+  }
+}
+
+/**
+ * 用户点击取消/稍后再说
+ */
+const handleAuthCancel = () => {
+  showAuthGuide.value = false
+  console.log('⏭️ 用户跳过授权')
+}
+
 // 每次页面显示时刷新用户信息
 onShow(() => {
   console.log('📱 首页显示，用户登录状态:', isLoggedIn.value)
@@ -294,9 +468,14 @@ onShow(() => {
     if (restored && (!userStore.userInfo || !userStore.userInfo.realName)) {
       userStore.checkAuth().then(res => {
         console.log('📱 checkAuth 获取用户信息成功:', res)
+        // 登录成功后检查授权状态
+        checkAndPromptAuth()
       }).catch(err => {
         console.warn('⚠️ checkAuth 失败:', err)
       })
+    } else if (restored) {
+      // 已有完整信息，直接检查授权
+      checkAndPromptAuth()
     }
   } catch (err) {
     console.warn('⚠️ 首页恢复登录态失败:', err)
@@ -550,5 +729,172 @@ onShow(() => {
   font-size: 20rpx;
   color: #374151;
   font-weight: 500;
+}
+
+/* 微信风格授权弹窗样式 */
+.wx-auth-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  animation: wxMaskFadeIn 0.2s ease-out;
+}
+
+@keyframes wxMaskFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.wx-auth-panel {
+  width: 100%;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: wxPanelSlideUp 0.3s ease-out;
+}
+
+@keyframes wxPanelSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* 顶部小程序信息 */
+.wx-auth-header {
+  display: flex;
+  align-items: center;
+  padding: 40rpx 40rpx 20rpx;
+}
+
+.wx-app-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 12rpx;
+  margin-right: 16rpx;
+}
+
+.wx-app-name {
+  font-size: 32rpx;
+  color: #000;
+  font-weight: 500;
+}
+
+/* 提示文字 */
+.wx-auth-hint {
+  padding: 0 40rpx 24rpx;
+}
+
+.wx-auth-hint text {
+  font-size: 30rpx;
+  color: #000;
+  font-weight: 500;
+}
+
+/* 模板列表 */
+.wx-template-list {
+  padding: 0 40rpx;
+}
+
+.wx-template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.wx-template-item:last-child {
+  border-bottom: none;
+}
+
+.wx-template-name {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.wx-switch {
+  transform: scale(0.85);
+}
+
+/* 总是保持选择 */
+.wx-always-keep {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 40rpx 32rpx;
+}
+
+.wx-checkbox {
+  width: 36rpx;
+  height: 36rpx;
+  border: 2rpx solid #07c160;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12rpx;
+  transition: all 0.2s ease;
+}
+
+.wx-checkbox.checked {
+  background: rgba(7, 193, 96, 0.1);
+}
+
+.wx-keep-text {
+  font-size: 26rpx;
+  color: #888;
+}
+
+/* 底部按钮 */
+.wx-auth-buttons {
+  display: flex;
+  padding: 0 40rpx 40rpx;
+  gap: 24rpx;
+}
+
+.wx-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 12rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wx-btn::after {
+  border: none;
+}
+
+.wx-btn-cancel {
+  background: #f5f5f5;
+  color: #576b95;
+}
+
+.wx-btn-cancel:active {
+  background: #e8e8e8;
+}
+
+.wx-btn-confirm {
+  background: #07c160;
+  color: #fff;
+}
+
+.wx-btn-confirm:active {
+  background: #06ad56;
+}
+
+.wx-btn-confirm.disabled {
+  background: #c9c9c9;
+  color: #fff;
 }
 </style>

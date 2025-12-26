@@ -53,6 +53,9 @@ const requestInterceptor = (config) => {
 const responseInterceptor = (response) => {
   const { statusCode, data } = response
   
+  // 🔍 添加调试日志：打印后端原始响应
+  console.log('[HTTP] Response data:', JSON.stringify(data))
+  
   // HTTP状态码检查
   if (statusCode === 200) {
     // ✅ 成功时 code=0, 数据在 message 字段

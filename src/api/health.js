@@ -8,23 +8,11 @@ import { mockHealthData, calculateAge } from '@/pages/profile/health/health-mock
 // 统一的 Mock 开关（默认关闭，使用真实接口）
 const USE_MOCK = false
 
-const ensureObject = (value) => (value && typeof value === 'object' ? value : {})
-const ensureArray = (value) => (Array.isArray(value) ? value : [])
-const normalizeMedicalHistory = (history = {}) => ({
-  pastHistory: ensureArray(history.pastHistory),
-  allergyHistory: ensureArray(history.allergyHistory),
-  familyHistory: ensureArray(history.familyHistory)
-})
-const normalizeHealthRecord = (record = {}) => ({
-  ...record,
-  basicInfo: ensureObject(record.basicInfo),
-  medicalHistory: normalizeMedicalHistory(record.medicalHistory),
-  consultationRecords: ensureArray(record.consultationRecords)
-})
-
 /**
  * 获取我的健康档案
  * @returns {Promise} 返回健康档案数据
+ * 后端返回格式：{code: 0, message: {patientId, basicInfo, medicalHistory, consultationRecords}}
+ * request.js 响应拦截器会自动提取 message 字段并返回
  */
 export const getMyHealthRecord = async () => {
   if (USE_MOCK) {
@@ -58,8 +46,8 @@ export const getMyHealthRecord = async () => {
   }
   
   // 真实接口：GET /patient/health-record
-  const response = await request.get('/patient/health-record')
-  return normalizeHealthRecord(response)
+  // request.js 会自动提取 {code: 0, message: {...}} 中的 message 字段
+  return request.get('/patient/health-record')
 }
 
 /**
@@ -120,8 +108,11 @@ export const downloadMedicalRecordPDF = (visitId) => {
  * 获取我的就诊记录列表
  * @param {Object} params - 查询参数 { page, pageSize }
  * @returns {Promise} 返回就诊记录列表
+ * @deprecated 后端没有单独的就诊记录列表接口，就诊记录已包含在 getMyHealthRecord 的 consultationRecords 字段中
  */
 export const getMyVisitRecords = (params = {}) => {
+  console.warn('⚠️ getMyVisitRecords 已废弃，请使用 getMyHealthRecord 获取就诊记录')
+  
   if (USE_MOCK) {
     // 返回 Mock 的就诊记录
     const { page = 1, pageSize = 10 } = params
@@ -136,9 +127,11 @@ export const getMyVisitRecords = (params = {}) => {
     })
   }
   
-  // 真实接口：获取患者自己的就诊记录
-  return request.get('/patient/visit-records', {
+  // ❌ 后端没有此接口，返回空列表避免 404 错误
+  return Promise.resolve({
+    total: 0,
     page: params.page || 1,
-    pageSize: params.pageSize || 10
+    pageSize: params.pageSize || 10,
+    list: []
   })
 }

@@ -325,7 +325,19 @@ export const createAppointment = (data) => {
     hospitalId: data.hospitalId,      // 必填：医院ID（院区ID）
     departmentId: data.departmentId,  // 必填：科室ID
     patientId: data.patientId,        // 必填：患者ID（本人或就诊人的patientId）
-    symptoms: data.symptoms || ''     // 可选：症状描述
+    symptoms: data.symptoms || '',    // 可选：症状描述
+    
+    // ⭐ 订阅消息相关字段（可选，后端会自动处理）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    // 🔧 传递纯净的授权结果对象（移除errMsg字段）
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: (() => {
+        const result = { ...data.subscribeAuthResult }
+        delete result.errMsg  // 移除微信返回的errMsg字段
+        return result
+      })()
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
   }
   
   console.log('📤 创建预约请求参数:', apiData)
@@ -403,13 +415,12 @@ export const getMyAppointments = (params = {}) => {
   }
   
   return request.get('/patient/appointments', apiParams).then(response => {
-    // 🔧 修复：映射后端状态到前端状态
-    // 后端: confirmed/finished/cancelled → 前端: pending/completed/cancelled
-    const statusMap = {
-      'confirmed': 'pending',    // 已确认 → 待就诊
-      'finished': 'completed',   // 已完成 → 已完成
-      'cancelled': 'cancelled'   // 已取消 → 已取消
-    }
+    // 🔧 修复：映射后端状态到前端状态，区分待支付和待就诊
+    // 后端状态组合：
+    // - pending + paymentStatus=pending → 待支付（需要支付）
+    // - confirmed + paymentStatus=paid → 待就诊（已支付）
+    // - finished → 已完成
+    // - cancelled → 已取消
     
     // 映射列表中的每个预约记录
     if (response && response.list) {
@@ -420,12 +431,39 @@ export const getMyAppointments = (params = {}) => {
           return appointment.status !== 'waitlist' && !appointment.isWaitlist
         })
         .map(appointment => {
-          // 🔍 调试：打印原始数据，检查后端是否返回 sourceType 字段
-          if (appointment.paymentStatus === 'pending') {
-            console.log('🔍 待支付订单原始数据:', JSON.stringify(appointment, null, 2))
+          // 🔧 根据 status 和 paymentStatus 组合判断真实状态
+          let mappedStatus = appointment.status
+          
+          // 待支付：status=pending 且 paymentStatus=pending
+          if (appointment.status === 'pending' && appointment.paymentStatus === 'pending') {
+            mappedStatus = 'pending'  // 保持为 pending，但前端需要根据 paymentStatus 判断是否需要支付
+          }
+          // 待就诊：status=confirmed 且 paymentStatus=paid
+          else if (appointment.status === 'confirmed' && appointment.paymentStatus === 'paid') {
+            mappedStatus = 'pending'  // 映射为前端的 pending（待就诊）
+          }
+          // 已确认但未支付（医生加号场景）：status=confirmed 但 paymentStatus=pending
+          else if (appointment.status === 'confirmed' && appointment.paymentStatus === 'pending') {
+            mappedStatus = 'pending'  // 映射为 pending，但需要支付
+          }
+          // 已完成
+          else if (appointment.status === 'finished') {
+            mappedStatus = 'completed'
+          }
+          // 已取消
+          else if (appointment.status === 'cancelled') {
+            mappedStatus = 'cancelled'
           }
           
-          const mappedStatus = statusMap[appointment.status] || appointment.status
+          // 🔍 调试：打印待支付订单
+          if (appointment.paymentStatus === 'pending') {
+            console.log('🔍 待支付订单:', {
+              id: appointment.id,
+              status: appointment.status,
+              paymentStatus: appointment.paymentStatus,
+              mappedStatus: mappedStatus
+            })
+          }
           
           // 判断预约日期是否在未来
           const appointmentDate = new Date(appointment.appointmentDate)
@@ -492,11 +530,7 @@ export const getMyInitiatedAppointments = (params = {}) => {
   
   return request.get('/patient/my-initiated-appointments', apiParams).then(response => {
     // 状态映射和数据处理逻辑与getMyAppointments相同
-    const statusMap = {
-      'confirmed': 'pending',
-      'finished': 'completed',
-      'cancelled': 'cancelled'
-    }
+    // 根据 status 和 paymentStatus 组合判断真实状态
     
     if (response && response.list) {
       response.list = response.list
@@ -505,7 +539,29 @@ export const getMyInitiatedAppointments = (params = {}) => {
           return appointment.status !== 'waitlist' && !appointment.isWaitlist
         })
         .map(appointment => {
-          const mappedStatus = statusMap[appointment.status] || appointment.status
+          // 🔧 根据 status 和 paymentStatus 组合判断真实状态
+          let mappedStatus = appointment.status
+          
+          // 待支付：status=pending 且 paymentStatus=pending
+          if (appointment.status === 'pending' && appointment.paymentStatus === 'pending') {
+            mappedStatus = 'pending'
+          }
+          // 待就诊：status=confirmed 且 paymentStatus=paid
+          else if (appointment.status === 'confirmed' && appointment.paymentStatus === 'paid') {
+            mappedStatus = 'pending'  // 映射为前端的 pending（待就诊）
+          }
+          // 已确认但未支付（医生加号场景）：status=confirmed 但 paymentStatus=pending
+          else if (appointment.status === 'confirmed' && appointment.paymentStatus === 'pending') {
+            mappedStatus = 'pending'  // 映射为 pending，但需要支付
+          }
+          // 已完成
+          else if (appointment.status === 'finished') {
+            mappedStatus = 'completed'
+          }
+          // 已取消
+          else if (appointment.status === 'cancelled') {
+            mappedStatus = 'cancelled'
+          }
           
           const appointmentDate = new Date(appointment.appointmentDate)
           const today = new Date()
@@ -544,9 +600,10 @@ export const getMyInitiatedAppointments = (params = {}) => {
 /**
  * 取消预约
  * @param {String} appointmentId - 预约ID
+ * @param {Object} data - 可选参数 { wxCode, subscribeAuthResult, subscribeScene }
  * @returns {Promise} 返回取消结果 { success, refundAmount }
  */
-export const cancelAppointment = (appointmentId) => {
+export const cancelAppointment = (appointmentId, data = {}) => {
   if (USE_MOCK) {
     // 在 Mock 数据中找到预约并更新状态
     const appointment = mockAppointments.find(a => a.id === appointmentId)
@@ -581,7 +638,22 @@ export const cancelAppointment = (appointmentId) => {
     }
     return Promise.resolve({ success: true, refundAmount: 0 })
   }
-  return request.put(`/patient/appointments/${appointmentId}/cancel`)
+  
+  // 后端接口参数（包含订阅消息相关字段）
+  const apiData = {
+    // 订阅消息相关参数（可选）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: typeof data.subscribeAuthResult === 'string' 
+        ? JSON.parse(data.subscribeAuthResult) 
+        : data.subscribeAuthResult
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
+  }
+  
+  console.log('📤 取消预约请求参数:', apiData)
+  
+  return request.put(`/patient/appointments/${appointmentId}/cancel`, apiData)
 }
 
 /**
@@ -728,10 +800,20 @@ export const rescheduleAppointment = (appointmentId, data) => {
     return Promise.resolve(updatedAppointment)
   }
   
-  // 🔧 后端接口只需要 scheduleId
+  // 后端接口参数（包含订阅消息相关字段）
   const apiData = {
-    scheduleId: data.scheduleId
+    scheduleId: data.scheduleId,
+    // 订阅消息相关参数（可选）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: typeof data.subscribeAuthResult === 'string' 
+        ? JSON.parse(data.subscribeAuthResult) 
+        : data.subscribeAuthResult
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
   }
+  
+  console.log('📤 改约请求参数:', apiData)
   
   return request.put(`/patient/appointments/${appointmentId}/reschedule`, apiData)
 }
@@ -795,7 +877,29 @@ export const createWaitlist = (data) => {
       position: newWaitlist.position
     })
   }
-  return request.post('/patient/waitlist', data)
+  
+  // 后端接口参数（包含订阅消息相关字段）
+  const apiData = {
+    scheduleId: data.scheduleId,
+    patientId: data.patientId,
+    // 订阅消息相关参数（可选）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    ...(data.subscribeAuthResult && { 
+      // 🔧 去除微信返回的 errMsg，确保后端保存纯净结果
+      subscribeAuthResult: (() => {
+        const parsed = typeof data.subscribeAuthResult === 'string'
+          ? JSON.parse(data.subscribeAuthResult)
+          : { ...data.subscribeAuthResult }
+        delete parsed.errMsg
+        return parsed
+      })()
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
+  }
+  
+  console.log('📤 创建候补请求参数:', apiData)
+  
+  return request.post('/patient/waitlist', apiData)
 }
 
 /**
@@ -830,7 +934,7 @@ export const cancelWaitlist = (waitlistId) => {
 /**
  * 候补转预约
  * @param {String} waitlistId - 候补订单ID
- * @param {String} paymentMethod - 支付方式 'online' | 'offline'
+ * @param {Object} data - 转预约参数 { slotId, wxCode, subscribeAuthResult, subscribeScene }
  * @returns {Promise} 返回预约订单信息
  * Response: {
  *   id: 订单ID,
@@ -840,11 +944,12 @@ export const cancelWaitlist = (waitlistId) => {
  *   price: 价格,
  *   status: 'pending',
  *   paymentStatus: 'pending',
+ *   sourceType: 'waitlist',
  *   createdAt: 创建时间,
  *   expiresAt: 支付过期时间
  * }
  */
-export const convertWaitlistToAppointment = (waitlistId, paymentMethod = 'online') => {
+export const convertWaitlistToAppointment = (waitlistId, data = {}) => {
   if (USE_MOCK) {
     const waitlist = mockWaitlist.find(w => w.id === waitlistId)
     if (!waitlist) {
@@ -872,13 +977,28 @@ export const convertWaitlistToAppointment = (waitlistId, paymentMethod = 'online
       price: waitlist.price,
       status: 'pending',
       paymentStatus: 'pending',
+      sourceType: 'waitlist',
       createdAt: now.toISOString().replace('T', ' ').slice(0, 19),
       expiresAt: expiresAt.toISOString().replace('T', ' ').slice(0, 19)
     }
     
     return Promise.resolve(appointment)
   }
-  return request.post(`/patient/waitlist/${waitlistId}/convert`, {
-    paymentMethod: paymentMethod
-  })
+  
+  // 后端接口参数（包含订阅消息相关字段）
+  const apiData = {
+    slotId: data.slotId,
+    // 订阅消息相关参数（可选）
+    ...(data.wxCode && { wxCode: data.wxCode }),
+    ...(data.subscribeAuthResult && { 
+      subscribeAuthResult: typeof data.subscribeAuthResult === 'string' 
+        ? JSON.parse(data.subscribeAuthResult) 
+        : data.subscribeAuthResult
+    }),
+    ...(data.subscribeScene && { subscribeScene: data.subscribeScene })
+  }
+  
+  console.log('📤 候补转预约请求参数:', apiData)
+  
+  return request.post(`/patient/waitlist/${waitlistId}/convert`, apiData)
 }

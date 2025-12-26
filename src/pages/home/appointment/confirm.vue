@@ -95,6 +95,7 @@ import { useAppointmentStore } from '@/stores/appointment'
 import { usePaymentStore } from '@/stores/payment'  // ✅ 导入支付Store
 import { getPatients } from '@/api/user'  // ✨ 导入 API
 import { createAppointment } from '@/api/appointment'  // ✨ 导入预约API
+// ✅ 订阅消息授权已统一在首页完成，业务页面不再弹窗
 
 const appointmentStore = useAppointmentStore()
 const paymentStore = usePaymentStore()  // ✅ 使用支付Store
@@ -187,6 +188,7 @@ const changeTime = () => {
 }
 
 // 提交预约
+// ✅ 订阅消息授权已统一在首页完成，这里不再弹窗
 const submitAppointment = async () => {
   if (!selectedPatient.value) {
     uni.showToast({
@@ -201,15 +203,15 @@ const submitAppointment = async () => {
   }
   submitting.value = true
 
-  uni.showLoading({
-    title: '预约中...',
-    mask: true
-  })
-  
   try {
-    // ✅ 调用 API 创建预约(自动判断使用 Mock 还是真实接口)
+    uni.showLoading({
+      title: '预约中...',
+      mask: true
+    })
+    
     const schedule = appointmentStore.selectedSchedule
     
+    // ✅ 简化：不再传递 wxCode/subscribeAuthResult，后端使用已保存的绑定信息
     const appointmentData = {
       scheduleId: Number(schedule?.id),
       hospitalId: Number(appointmentStore.selectedHospital?.id),

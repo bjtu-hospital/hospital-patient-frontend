@@ -72,6 +72,8 @@ import { ref, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getMyAppointments, getMyInitiatedAppointments, cancelAppointment as cancelAppointmentApi } from '@/api/appointment'
 import { useAppointmentStore } from '@/stores/appointment'
+import { requestSubscribeMessage, getWxCode, SUBSCRIBE_TEMPLATE_IDS } from '@/utils/subscribe'
+// ✅ 订阅消息授权已统一在首页完成，业务页面不再弹窗
 
 const viewMode = ref('my') // 'my' | 'initiated'
 const selectedStatus = ref('all')
@@ -151,8 +153,8 @@ const viewDetails = (appointment) => {
 }
 
 // 取消预约
+// 订阅消息：按需补齐，避免用户在首页跳过授权时无法推送
 const cancelAppointment = async (appointment) => {
-  // 弹出确认框
   uni.showModal({
     title: '取消预约',
     content: '确定要取消这个预约吗？取消后可能需要重新预约。',
@@ -161,8 +163,25 @@ const cancelAppointment = async (appointment) => {
         try {
           uni.showLoading({ title: '取消中...' })
           
-          // ✨ 调用 API 取消预约（自动判断 Mock/真实接口）
-          await cancelAppointmentApi(appointment.id)
+          // 按需请求订阅授权（取消预约模板）
+          let wxCode = null
+          let subscribeAuthResult = null
+          try {
+            subscribeAuthResult = await requestSubscribeMessage([
+              SUBSCRIBE_TEMPLATE_IDS.CANCEL_APPOINTMENT
+            ])
+            wxCode = await getWxCode()
+          } catch (authErr) {
+            console.warn('订阅授权失败，继续取消流程', authErr)
+          }
+
+          await cancelAppointmentApi(appointment.id, {
+            ...(wxCode && { wxCode }),
+            ...(subscribeAuthResult && { subscribeAuthResult }),
+            subscribeScene: 'cancel'
+          })
+          
+          console.log('✅ 取消预约成功')
           
           uni.hideLoading()
           uni.showToast({
@@ -170,7 +189,6 @@ const cancelAppointment = async (appointment) => {
             icon: 'success'
           })
           
-          // 刷新数据
           loadAppointments()
           
         } catch (error) {
@@ -266,7 +284,8 @@ const goToPayment = (appointment) => {
 
 // 返回首页
 const goToHome = () => {
-  uni.switchTab({
+  // 使用 reLaunch 代替 switchTab，避免从非 tabBar 页面跳转时先闪现到 profile/index
+  uni.reLaunch({
     url: '/pages/home/index'
   })
 }

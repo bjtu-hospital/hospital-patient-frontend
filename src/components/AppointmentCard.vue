@@ -98,22 +98,35 @@ const isFromWaitlist = computed(() => {
   return props.appointment.sourceType === 'waitlist' || props.appointment.fromWaitlist === true
 })
 
-// 判断是否需要支付（候补成功但未支付）
+// 判断是否需要支付（候补成功但未支付，或医生加号但未支付）
 const needPay = computed(() => {
-  // 候补转预约后，paymentStatus 为 'pending' 表示待支付
-  return isFromWaitlist.value && 
-         props.appointment.status === 'pending' && 
+  // paymentStatus 为 'pending' 或 'unpaid' 表示待支付
+  // 无论是候补转预约，还是医生加号，只要未支付都显示支付按钮
+  return props.appointment.status === 'pending' && 
          (props.appointment.paymentStatus === 'pending' || props.appointment.paymentStatus === 'unpaid')
 })
 
-// 状态文本映射
-const statusMap = {
-  pending: '待就诊',
-  completed: '已完成',
-  cancelled: '已取消'
-}
-
-const statusText = computed(() => statusMap[props.appointment.status] || props.appointment.status)
+// 状态文本映射（需区分待支付和待就诊）
+const statusText = computed(() => {
+  const status = props.appointment.status
+  const paymentStatus = props.appointment.paymentStatus
+  
+  // 待支付：status=pending 且 paymentStatus=pending
+  if (status === 'pending' && paymentStatus === 'pending') {
+    return '待支付'
+  }
+  // 待就诊：status=pending 且 paymentStatus=paid（已支付）
+  if (status === 'pending' && paymentStatus === 'paid') {
+    return '待就诊'
+  }
+  // 其他状态
+  const statusMap = {
+    pending: '待就诊',  // 兜底，理论上不会走到这里
+    completed: '已完成',
+    cancelled: '已取消'
+  }
+  return statusMap[status] || status
+})
 
 // 显示操作按钮
 const showPay = computed(() => needPay.value) // 候补成功且未支付时显示

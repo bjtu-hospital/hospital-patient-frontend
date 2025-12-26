@@ -83,6 +83,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
 import { getPatients } from '@/api/user'
 import { createWaitlist } from '@/api/appointment'
+import { subscribeWithAuth, getTemplateIdsByScene } from '@/utils/subscribe'  // ✨ 导入订阅消息工具
 
 const appointmentStore = useAppointmentStore()
 
@@ -112,7 +113,7 @@ const selectPatient = () => {
   })
 }
 
-// 确认候补
+// 确认候补（集成订阅消息）
 const confirmWaitlist = async () => {
   if (!selectedPatient.value) {
     uni.showToast({
@@ -123,23 +124,37 @@ const confirmWaitlist = async () => {
   }
 
   try {
+    // ⭐ 步骤1: 请求订阅消息授权（必须在按钮点击事件的第一层调用）
+    console.log('🔔 请求订阅消息授权（候补场景）...')
+    const subscribeResult = await subscribeWithAuth({
+      templateIds: getTemplateIdsByScene('waitlist'),  // 候补转预约通知模板
+      businessData: {
+        patientId: selectedPatient.value.patientId,
+        scheduleId: schedule.value.id
+      }
+    })
+    
+    console.log('📬 订阅授权结果:', subscribeResult)
+    
+    // ⭐ 步骤2: 提交候补（在授权回调中异步执行）
     uni.showLoading({ title: '加入中...' })
 
     // 保存选中的就诊人到 Store
     appointmentStore.setSelectedPatient(selectedPatient.value)
 
-    console.log('提交候补数据:', {
-      scheduleId: schedule.value.id,
-      patientId: selectedPatient.value.patientId,  // 🔧 使用 patientId 字段
-      selectedPatient: selectedPatient.value
-    })
-
     const result = await createWaitlist({
       scheduleId: schedule.value.id,
-      patientId: selectedPatient.value.patientId  // 🔧 修正为 patientId
+      patientId: selectedPatient.value.patientId,
+      // ⭐ 携带订阅消息相关信息（后端保存授权记录）
+      wxCode: subscribeResult.code,
+      subscribeAuthResult: subscribeResult.authResult,
+      subscribeScene: 'waitlist'
+      // 💡 说明：后端不会立即发送消息，而是保存授权记录
+      // 当后端自动检测到号源并转预约成功时，才会发送"候补转预约通知"
     })
 
     console.log('✅ 候补创建成功，后端返回:', result)
+    console.log('📝 订阅消息授权已保存，等待后端自动转预约时触发推送')
 
     uni.hideLoading()
 
