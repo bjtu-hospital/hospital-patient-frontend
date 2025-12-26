@@ -162,7 +162,7 @@ const cancelAppointment = async (appointment) => {
       if (res.confirm) {
         try {
           uni.showLoading({ title: '取消中...' })
-
+          
           // 按需请求订阅授权（取消预约模板）
           let wxCode = null
           let subscribeAuthResult = null
@@ -180,7 +180,7 @@ const cancelAppointment = async (appointment) => {
             ...(subscribeAuthResult && { subscribeAuthResult }),
             subscribeScene: 'cancel'
           })
-
+          
           console.log('✅ 取消预约成功')
           
           uni.hideLoading()
